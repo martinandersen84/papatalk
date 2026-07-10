@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<!-- Development: ask browsers not to reuse stale HTML while iterating. -->
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Curiosidades — PapaTalk</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+  width:100%;height:100vh;height:100dvh;overflow:hidden;
+  background:#102027;color:#fff;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+body{
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  -webkit-tap-highlight-color:transparent;
+  display:flex;flex-direction:column;
+}
+
+/* ── Top bar ── */
+#topbar{
+  flex:0 0 auto;display:flex;align-items:center;gap:10px;
+  padding:10px 12px;min-height:60px;
+}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  border:none;border-radius:26px;padding:12px 22px;
+  font:bold 17px/1 system-ui,-apple-system,sans-serif;
+  color:#fff;cursor:pointer;text-decoration:none;
+  background:rgba(255,255,255,0.14);
+  transition:background .15s,transform .12s;
+}
+.btn:active{transform:scale(0.94);background:rgba(255,255,255,0.28)}
+.btn--primary{background:#0288D1}
+.btn--primary:active{background:#0277bd}
+#topbar-title{
+  flex:1;text-align:center;font-size:clamp(18px,4.5vw,28px);font-weight:800;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.spacer{flex:0 0 auto;min-width:96px}
+
+/* ── Menu view ── */
+#menu{flex:1;display:flex;flex-direction:column;min-height:0}
+#menu-grid{
+  flex:1;display:grid;gap:14px;padding:14px;min-height:0;
+  grid-template-columns:repeat(3,1fr);
+  grid-template-rows:repeat(2,1fr);
+}
+.cat-card{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;border-radius:22px;cursor:pointer;color:#fff;
+  border:5px solid transparent;
+  box-shadow:0 6px 16px rgba(0,0,0,0.35);
+  transition:transform .12s;
+  padding:10px;text-align:center;
+}
+.cat-card:active{transform:scale(0.96)}
+.cat-emoji{font-size:clamp(40px,9vw,84px);line-height:1}
+.cat-label{font-size:clamp(18px,3.6vw,32px);font-weight:800}
+
+/* ── Reader view ── */
+#reader{flex:1;display:none;flex-direction:column;min-height:0}
+#reader.active{display:flex}
+#fact-area{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  padding:24px;min-height:0;cursor:pointer;position:relative;
+}
+#fact-text{
+  font-size:clamp(28px,6.2vw,68px);
+  font-weight:800;line-height:1.35;text-align:center;
+  max-width:18ch;color:#fff;
+  text-shadow:0 2px 10px rgba(0,0,0,0.4);
+}
+#reader-controls{
+  flex:0 0 auto;display:flex;justify-content:center;gap:14px;padding:14px;
+}
+#reader-controls .btn{
+  justify-content:center;font-size:clamp(18px,4vw,26px);padding:18px 48px;
+  min-width:min(420px,80%);
+}
+
+/* ── Scan highlight ── */
+.scan-highlight{
+  outline:6px solid #FFEB3B;outline-offset:-3px;
+  border-color:#FFEB3B !important;
+  box-shadow:0 0 0 4px rgba(255,235,59,0.4),0 6px 16px rgba(0,0,0,0.4) !important;
+}
+
+/* ── Loading / error ── */
+#status{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  text-align:center;padding:30px;font-size:clamp(16px,4vw,24px);
+  background:#102027;z-index:50;
+}
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div id="topbar">
+  <a id="btn-back" class="btn" href="index.html">◀ Volver</a>
+  <div id="topbar-title">Curiosidades</div>
+  <div class="spacer"></div>
+</div>
+
+<!-- Category menu -->
+<div id="menu">
+  <div id="menu-grid"></div>
+</div>
+
+<!-- Reader -->
+<div id="reader">
+  <div id="fact-area"><div id="fact-text"></div></div>
+  <div id="reader-controls">
+    <button id="btn-next" class="btn btn--primary">Siguiente ▶</button>
+  </div>
+</div>
+
+<div id="status">Cargando curiosidades…</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ══ Categories (one colour each) ══ */
+var CATS=[
+  {id:'historia',   label:'Historia',   emoji:'🏛️', color:'#8D6E63'},
+  {id:'naturaleza', label:'Naturaleza', emoji:'🌿',       color:'#2E7D32'},
+  {id:'espacio',    label:'Espacio',    emoji:'🚀',       color:'#283593'},
+  {id:'ciencia',    label:'Ciencia',    emoji:'🔬',       color:'#00838F'},
+  {id:'humor',      label:'Humor',      emoji:'😄',       color:'#C2185B'},
+  {id:'inventos',   label:'Inventos',   emoji:'💡',       color:'#EF6C00'}
+];
+
+/* ══ PapaTalk config (shared scan/back keys) ══ */
+var ptCfg={};
+try{ptCfg=JSON.parse(localStorage.getItem('papatalk-config'))||{};}catch(e){}
+var scanCode=ptCfg.scanCode||'ArrowRight';
+var backCode=ptCfg.backCode||'ArrowLeft';
+var longPressMs=ptCfg.longPress||600;
+
+/* ══ DOM refs ══ */
+var $status   =document.getElementById('status');
+var $menu     =document.getElementById('menu');
+var $menuGrid =document.getElementById('menu-grid');
+var $reader   =document.getElementById('reader');
+var $factText =document.getElementById('fact-text');
+var $factArea =document.getElementById('fact-area');
+var $title    =document.getElementById('topbar-title');
+var $btnBack  =document.getElementById('btn-back');
+var $btnNext  =document.getElementById('btn-next');
+
+/* ══ Text-to-speech ══ */
+var ttsReady=('speechSynthesis' in window);
+function primeVoices(){ if(ttsReady){ try{ speechSynthesis.getVoices(); }catch(e){} } }
+if(ttsReady){
+  primeVoices();
+  if(typeof speechSynthesis.onvoiceschanged!=='undefined'){
+    speechSynthesis.onvoiceschanged=primeVoices;
+  }
+}
+function speak(text){
+  if(!ttsReady||!text) return;
+  try{
+    speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(text);
+    u.lang='es-ES';
+    u.rate=0.95;u.pitch=1;
+    var voices=speechSynthesis.getVoices();
+    var es=voices.find(function(v){return v.lang&&v.lang.toLowerCase().indexOf('es')===0;});
+    if(es) u.voice=es;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* ══ Math helpers for non-repeating traversal ══ */
+function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){var t=b;b=a%b;a=t;}return a;}
+function randomCoprimeStep(total){
+  if(total<=1) return 1;
+  var s,tries=0;
+  do{ s=1+Math.floor(Math.random()*(total-1)); tries++; }
+  while(gcd(s,total)!==1 && tries<2000);
+  return gcd(s,total)===1 ? s : 1;
+}
+
+/* ══ Data ══ */
+var FACTS={};            /* {categoryId: [texts]} */
+
+/* ══ Per-category pseudo-random state ══
+   item = (offset + index*step) % total
+   step is coprime with total so every fact is shown before repeating. */
+function stateKey(cat){return 'curiosidades-'+cat;}
+function newState(total){
+  return {offset:Math.floor(Math.random()*total), step:randomCoprimeStep(total), index:0, total:total};
+}
+function loadState(cat,total){
+  var st=null;
+  try{ st=JSON.parse(localStorage.getItem(stateKey(cat))); }catch(e){}
+  if(!st || st.total!==total || gcd(st.step,total)!==1 ||
+     typeof st.offset!=='number' || typeof st.index!=='number'){
+    st=newState(total);
+  }
+  return st;
+}
+function saveState(cat,st){
+  try{ localStorage.setItem(stateKey(cat),JSON.stringify(st)); }catch(e){}
+}
+
+/* ══ View state ══ */
+var view='menu';          /* 'menu' | 'reader' */
+var currentCat=null;      /* category object */
+
+/* ── Menu rendering ── */
+var scanIndex=-1;
+var scanEls=[];           /* elements participating in scan (cards + Volver) */
+
+function buildMenu(){
+  $menuGrid.innerHTML='';
+  CATS.forEach(function(cat){
+    var card=document.createElement('div');
+    card.className='cat-card';
+    card.style.background=cat.color;
+    card.innerHTML='<div class="cat-emoji">'+cat.emoji+'</div>'+
+                   '<div class="cat-label">'+cat.label+'</div>';
+    card.addEventListener('click',function(){ enterCategory(cat); });
+    card._cat=cat;
+    $menuGrid.appendChild(card);
+  });
+}
+
+function showMenu(speakTitle){
+  view='menu';
+  currentCat=null;
+  if(ttsReady) speechSynthesis.cancel();
+  $reader.classList.remove('active');
+  $menu.classList.remove('hidden');
+  $title.textContent='Curiosidades';
+  $btnBack.textContent='◀ Volver';
+  resetScan();
+  if(speakTitle!==false) speak('Curiosidades');
+}
+
+/* ── Reader ── */
+function enterCategory(cat){
+  view='reader';
+  currentCat=cat;
+  clearScanHighlight();
+  $menu.classList.add('hidden');
+  $reader.classList.add('active');
+  $reader.style.background=cat.color;
+  $factArea.style.background=cat.color;
+  $title.textContent=cat.label;
+  $btnBack.textContent='◀ Menú';
+  showNextFact();
+}
+
+function showNextFact(){
+  if(!currentCat) return;
+  var list=FACTS[currentCat.id]||[];
+  var total=list.length;
+  if(total===0){ $factText.textContent='No hay curiosidades disponibles.'; return; }
+
+  var st=loadState(currentCat.id,total);
+  if(st.index>=total){                 /* full cycle shown → reshuffle */
+    st=newState(total);
+  }
+  var pos=((st.offset + st.index*st.step)%total+total)%total;
+  st.index++;
+  saveState(currentCat.id,st);
+
+  var text=list[pos];
+  $factText.textContent=text;
+  speak(text);
+}
+
+/* ══ Scanning (menu only) ══ */
+function getScanCards(){
+  return Array.prototype.slice.call($menuGrid.querySelectorAll('.cat-card'));
+}
+function resetScan(){
+  scanIndex=-1;
+  clearScanHighlight();
+  scanEls=getScanCards();
+  scanEls.push($btnBack);
+}
+function clearScanHighlight(){
+  var hs=document.querySelectorAll('.scan-highlight');
+  for(var i=0;i<hs.length;i++) hs[i].classList.remove('scan-highlight');
+}
+function scanLabel(el){
+  if(el===$btnBack) return 'Volver';
+  return el._cat ? el._cat.label : '';
+}
+function advanceScan(){
+  clearScanHighlight();
+  if(!scanEls.length) return;
+  scanIndex=(scanIndex+1)%scanEls.length;
+  var el=scanEls[scanIndex];
+  el.classList.add('scan-highlight');
+  el.scrollIntoView({block:'nearest',behavior:'smooth'});
+  speak(scanLabel(el));
+}
+function retreatScan(){
+  clearScanHighlight();
+  if(!scanEls.length) return;
+  scanIndex = scanIndex<=0 ? scanEls.length-1 : scanIndex-1;
+  var el=scanEls[scanIndex];
+  el.classList.add('scan-highlight');
+  el.scrollIntoView({block:'nearest',behavior:'smooth'});
+  speak(scanLabel(el));
+}
+function activateScan(){
+  if(scanIndex<0||scanIndex>=scanEls.length) return;
+  scanEls[scanIndex].click();
+}
+
+/* ══ Button handlers ══ */
+$btnBack.addEventListener('click',function(e){
+  if(view==='reader'){ e.preventDefault(); showMenu(); }
+  /* in menu the anchor href navigates to index.html */
+});
+$btnNext.addEventListener('click',function(){ showNextFact(); });
+$factArea.addEventListener('click',function(){ showNextFact(); });
+
+/* ══ Keyboard (single/dual switch, with multi-layer repeat guards) ══ */
+var scanKeyDown=false, scanActivated=false, scanTimer=null, scanDebounce=false;
+var backKeyDown=false, backActivated=false, backTimer=null;
+
+document.addEventListener('keydown',function(e){
+  /* Layer 1: ignore OS auto-repeat */
+  if(e.repeat) return;
+
+  if(e.code===scanCode){
+    e.preventDefault();
+    /* Layer 2: ignore if already held or within release debounce */
+    if(scanKeyDown||scanDebounce) return;
+    scanKeyDown=true;
+    scanActivated=false;
+    if(view==='menu'){
+      /* long-press selects the highlighted category */
+      scanTimer=setTimeout(function(){ scanActivated=true; activateScan(); },longPressMs);
+    }
+    return;
+  }
+  if(e.code===backCode){
+    e.preventDefault();
+    if(backKeyDown) return;
+    backKeyDown=true;
+    backActivated=false;
+    if(view==='menu'){
+      /* long-press exits to the main board */
+      backTimer=setTimeout(function(){ backActivated=true; window.location.href='index.html'; },longPressMs);
+    }
+  }
+});
+
+document.addEventListener('keyup',function(e){
+  if(e.code===scanCode && scanKeyDown){
+    e.preventDefault();
+    clearTimeout(scanTimer);
+    scanKeyDown=false;
+    /* If a long-press already fired (e.g. selecting a category), the release
+       must do nothing — even though we may already be in the reader view. */
+    if(!scanActivated){
+      if(view==='menu') advanceScan();          /* short press: next card */
+      else showNextFact();                       /* Botón adelante: siguiente curiosidad */
+    }
+    /* Layer 3: brief debounce so a bounce doesn't double-fire */
+    scanDebounce=true;
+    setTimeout(function(){ scanDebounce=false; },80);
+  }
+  if(e.code===backCode && backKeyDown){
+    e.preventDefault();
+    clearTimeout(backTimer);
+    if(view==='menu'){
+      if(!backActivated) retreatScan();         /* short press: previous card */
+    }else{ /* reader */
+      showMenu();                               /* Botón atrás: volver al menú */
+    }
+    backKeyDown=false;
+  }
+});
+
+/* ══ Load data (local JSON, no server logic required) ══ */
+function ingest(json){
+  /* facts.json is keyed by category: {historia:[{text,...}], ...} */
+  CATS.forEach(function(cat){
+    var arr=json[cat.id]||[];
+    FACTS[cat.id]=arr.map(function(it){
+      return (typeof it==='string') ? it : (it && it.text) ? it.text : '';
+    }).filter(Boolean);
+  });
+}
+
+function start(){
+  $status.classList.add('hidden');
+  buildMenu();
+  showMenu(false);   /* don't auto-speak on first paint (iOS needs a gesture) */
+}
+
+function fail(msg){
+  $status.classList.remove('hidden');
+  $status.textContent=msg;
+}
+
+fetch('data/facts/facts.json',{cache:'no-store'})
+  .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+  .then(function(json){ ingest(json); start(); })
+  .catch(function(){
+    fail('No se pudieron cargar las curiosidades. Abre PapaTalk desde su servidor (no funciona con doble clic en el archivo).');
+  });
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+import json
+from pathlib import Path
+
+FACTS = {
+  "historia": [
+    ("El hormigón romano podía sellar grietas al reaccionar con agua.", "https://news.mit.edu/2023/roman-concrete-durability-lime-casts-0106"),
+    ("El mecanismo de Anticitera calculaba ciclos astronómicos hace más de 2000 años.", "https://www.smithsonianmag.com/history/decoding-antikythera-mechanism-first-computer-180953979/"),
+    ("El azul egipcio puede brillar en infrarrojo aunque parezca apagado.", "https://www.britishmuseum.org/blog/egyptian-blue"),
+    ("Los quipus andinos guardaban datos con nudos, colores y posiciones.", "https://www.britannica.com/topic/quipu"),
+    ("El Panteón de Roma conserva una enorme cúpula de hormigón sin acero.", "https://www.britannica.com/topic/Pantheon-building-Rome-Italy"),
+    ("Los vikingos usaban peines finos y cuidaban mucho su aseo diario.", "https://www.worldhistory.org/article/1842/viking-hygiene-clothing--jewelry/"),
+    ("La piedra de Rosetta tiene el mismo texto en tres escrituras distintas.", "https://www.britishmuseum.org/collection/object/Y_EA24"),
+    ("Los romanos tuvieron cristales de ventana antes del vidrio moderno.", "https://www.metmuseum.org/toah/hd/glas/hd_glas.htm"),
+    ("Algunos mapas medievales ponian el este en la parte superior.", "https://www.bl.uk/medieval-english-french-manuscripts/articles/medieval-maps"),
+    ("La tinta ferrogálica oscurece con el tiempo por una reacción química.", "https://www.loc.gov/preservation/scientists/projects/iron_gall_ink.html"),
+    ("El papel moneda circuló en China siglos antes que en Europa.", "https://www.britannica.com/money/paper-money"),
+    ("Los antiguos mayas usaban cacao como bebida valiosa y moneda.", "https://www.si.edu/spotlight/chocolate/history"),
+    ("La seda fue un secreto tecnologico chino durante muchos siglos.", "https://www.britannica.com/topic/sericulture"),
+    ("Los romanos numeraban algunas calles con hitos de piedra.", "https://www.britannica.com/technology/road/Roman-roads"),
+    ("El primer alfabeto fenicio tenía letras para sonidos, no para ideas completas.", "https://www.britannica.com/topic/Phoenician-alphabet")
+  ],
+  "naturaleza": [
+    ("Los pulpos tienen tres corazones y fluido circulatorio azulado.", "https://ocean.si.edu/ocean-life/invertebrates/octopus"),
+    ("Los wombats producen excrementos con forma de cubo.", "https://www.smithsonianmag.com/smart-news/why-wombat-poop-cube-shaped-180976898/"),
+    ("Los flamencos no nacen rosas: toman color de su alimento.", "https://nationalzoo.si.edu/animals/news/why-are-flamingos-pink"),
+    ("El golpe del camarón mantis puede crear una diminuta burbuja luminosa.", "https://ocean.si.edu/ocean-life/invertebrates/mantis-shrimp"),
+    ("El pelo de los perezosos puede alojar algas que le dan tono verdoso.", "https://www.nhm.ac.uk/discover/why-are-sloths-slow.html"),
+    ("Los tardígrados pueden sobrevivir al vacío del espacio durante un tiempo.", "https://www.nhm.ac.uk/discover/tardigrades-the-toughest-animals-on-earth.html"),
+    ("Los ajolotes regeneran patas, cola e incluso partes del corazón.", "https://www.nationalgeographic.com/animals/amphibians/facts/axolotl"),
+    ("Los geckos se pegan al vidrio con millones de pelillos microscópicos.", "https://www.nhm.ac.uk/discover/how-do-geckos-stick-to-walls.html"),
+    ("Las abejas indican direcciones con una danza en forma de ocho.", "https://www.nobelprize.org/prizes/medicine/1973/frisch/facts/"),
+    ("Algunos cuervos recuerdan caras humanas durante años.", "https://www.washington.edu/news/2012/09/10/crows-react-to-threats-in-human-like-way/"),
+    ("Los delfines usan silbidos propios que funcionan como nombres.", "https://www.nationalgeographic.com/animals/article/dolphins-names-identity-animals-science"),
+    ("Las mariposas pueden saborear con sensores en las patas.", "https://www.si.edu/stories/butterflies-use-their-feet-taste"),
+    ("El olor a lluvia en tierra seca se llama petricor.", "https://www.science.org/content/article/why-rain-smells-good"),
+    ("Las piñas de pino se abren y cierran según la humedad.", "https://www.nhm.ac.uk/discover/why-do-pine-cones-open-and-close.html"),
+    ("El bambú puede crecer decenas de centímetros en un solo día.", "https://www.britannica.com/plant/bamboo")
+  ],
+  "espacio": [
+    ("Venus es más caliente que Mercurio aunque está más lejos del Sol.", "https://science.nasa.gov/venus/"),
+    ("Un día solar en Mercurio dura unos 176 días terrestres.", "https://science.nasa.gov/mercury/"),
+    ("Olympus Mons, en Marte, supera en altura a cualquier montaña terrestre.", "https://science.nasa.gov/mars/olympus-mons/"),
+    ("Saturno tiene una densidad media menor que la del agua.", "https://science.nasa.gov/saturn/"),
+    ("El Sol concentra casi toda la masa del Sistema Solar.", "https://science.nasa.gov/sun/"),
+    ("Urano gira tan inclinado que parece rodar alrededor del Sol.", "https://science.nasa.gov/uranus/"),
+    ("Neptuno fue localizado gracias a cálculos antes de observarse bien.", "https://science.nasa.gov/neptune/"),
+    ("La Luna se aleja de la Tierra unos centímetros cada año.", "https://science.nasa.gov/moon/"),
+    ("Las sondas Voyager llevan saludos de la Tierra en un disco dorado.", "https://science.nasa.gov/mission/voyager/golden-record/"),
+    ("La Gran Mancha Roja de Jupiter es una tormenta mayor que la Tierra.", "https://science.nasa.gov/jupiter/great-red-spot/"),
+    ("En Marte hay atardeceres de tono azulado.", "https://science.nasa.gov/mars/"),
+    ("La luz del Sol tarda algo mas de ocho minutos en llegar aqui.", "https://science.nasa.gov/sun/"),
+    ("La Estación Espacial completa una vuelta a la Tierra en unos 90 minutos.", "https://www.nasa.gov/international-space-station/"),
+    ("Titán tiene ríos y lagos, pero son de metano y etano líquidos.", "https://science.nasa.gov/saturn/moons/titan/"),
+    ("Europa, luna de Júpiter, podría ocultar un océano bajo su hielo.", "https://science.nasa.gov/jupiter/moons/europa/")
+  ],
+  "ciencia": [
+    ("Cada célula humana guarda unos dos metros de ADN enrollado.", "https://www.genome.gov/about-genomics/fact-sheets/Deoxyribonucleic-Acid-Fact-Sheet"),
+    ("Los neutrinos atraviesan la Tierra casi sin interactuar.", "https://home.cern/science/physics/neutrinos"),
+    ("El grafeno puede ser una lámina de carbono de un solo átomo.", "https://www.britannica.com/science/graphene"),
+    ("El hielo flota porque el agua se expande al congelarse.", "https://www.usgs.gov/special-topics/water-science-school/science/water-density"),
+    ("El cielo se ve azul porque el aire dispersa mas la luz azul.", "https://spaceplace.nasa.gov/blue-sky/en/"),
+    ("La miel puede cristalizar y seguir siendo comestible si se conserva bien.", "https://www.loc.gov/everyday-mysteries/chemistry/item/why-does-honey-crystallize/"),
+    ("Botánicamente, el plátano cuenta como baya.", "https://www.britannica.com/story/is-a-banana-a-fruit-or-a-berry"),
+    ("Un rayo puede calentar el aire más que la superficie del Sol.", "https://www.weather.gov/safety/lightning-temperature"),
+    ("El olor a lluvia nace de aceites vegetales y bacterias del suelo.", "https://www.science.org/content/article/why-rain-smells-good"),
+    ("El helio cambia la voz porque el sonido viaja más rápido en él.", "https://www.scientificamerican.com/article/why-does-inhaling-helium/"),
+    ("El vidrio comun es solido, pero sus atomos no forman un cristal ordenado.", "https://www.cmog.org/article/what-glass"),
+    ("La electricidad estatica puede mover objetos ligeros sin tocarlos.", "https://www.loc.gov/everyday-mysteries/physics/item/how-does-static-electricity-work/"),
+    ("Una pompa de jabon tiende a ser redonda porque minimiza superficie.", "https://www.scientificamerican.com/article/bring-science-home-best-bubbles/"),
+    ("El cobre conduce calor y electricidad de forma excepcional.", "https://www.britannica.com/science/copper"),
+    ("El cero como número cambió la forma de calcular y escribir cantidades.", "https://www.britannica.com/science/zero-mathematics")
+  ],
+  "humor": [
+    ("El Hombre Michelin se llama Bibendum.", "https://www.michelin.com/en/publications/the-michelin-man/"),
+    ("Barbie tiene nombre completo: Barbara Millicent Roberts.", "https://shop.mattel.com/pages/barbie-about"),
+    ("LEGO viene de una expresión danesa que significa jugar bien.", "https://www.lego.com/en-us/history/articles/1930s-the-name-lego"),
+    ("Nintendo empezó fabricando cartas, no consolas.", "https://www.nintendo.com/us/about/"),
+    ("El punto de la i tiene nombre propio en ingles: tittle.", "https://www.merriam-webster.com/dictionary/tittle"),
+    ("El cubo de Rubik nacio como herramienta para explicar geometria.", "https://www.rubiks.com/en-US/about"),
+    ("Potato Head fue de los primeros juguetes anunciados en televisión.", "https://www.history.com/this-day-in-history/mr-potato-head-first-tv-toy-ad"),
+    ("El osito teddy recibió su nombre por Theodore Roosevelt.", "https://www.si.edu/spotlight/teddy-bear"),
+    ("Silly Putty salió de una búsqueda de caucho sintético.", "https://www.acs.org/education/whatischemistry/landmarks/silly-putty.html"),
+    ("El Slinky nació cuando un muelle cayó y empezó a bajar solo.", "https://www.toyhalloffame.org/toys/slinky/"),
+    ("El nombre Frisbee viene de unas tartas cuyas bandejas se lanzaban por diversión.", "https://www.museumofplay.org/toys/frisbee/"),
+    ("El pato Donald tiene segundo nombre: Fauntleroy.", "https://d23.com/a-to-z/donald-duck/"),
+    ("Pac-Man se inspiró en una pizza a la que le faltaba una porción.", "https://www.moma.org/collection/works/164920"),
+    ("El Tamagotchi convirtió cuidar píxeles en una moda mundial.", "https://www.museumofplay.org/toys/tamagotchi/"),
+    ("El Monopoly tenia antes reglas caseras que muchos jugadores nunca leian.", "https://www.hasbro.com/common/instruct/monins.pdf")
+  ],
+  "inventos": [
+    ("El velcro se inspiró en semillas que se enganchaban a la ropa.", "https://www.velcro.com/original-thinking/the-velcro-brand-invention/"),
+    ("El microondas nació tras notar que una chocolatina se derretía cerca de un radar.", "https://www.raytheon.com/news/feature/microwave-invention"),
+    ("El Post-it usó un adhesivo que al principio parecía demasiado flojo.", "https://www.3m.com/3M/en_US/post-it/contact-us/about-us/"),
+    ("El plástico de burbujas empezó como intento de papel pintado con textura.", "https://www.smithsonianmag.com/innovation/accidental-invention-bubble-wrap-180971325/"),
+    ("El código QR se creó para seguir piezas en fábricas de automóviles.", "https://www.denso-wave.com/en/technology/vol1.html"),
+    ("La plastilina Play-Doh empezó como limpiador de papel de pared.", "https://www.museumofplay.org/toys/play-doh/"),
+    ("El helado de palo se atribuye a una bebida olvidada al frío por un niño.", "https://www.popsicle.com/us/en/about-us/"),
+    ("La cremallera se popularizó cuando unas botas la llamaron zipper.", "https://www.britannica.com/technology/zipper"),
+    ("El fonografo de Edison fue pensado primero para grabar voz.", "https://www.loc.gov/collections/edison-company-motion-pictures-and-sound-recordings/articles-and-essays/history-of-edison-sound-recordings/history-of-the-cylinder-phonograph/"),
+    ("La lata de conserva existió antes que el abrelatas práctico.", "https://www.britannica.com/technology/canning-food-processing"),
+    ("La imprenta de tipos móviles hizo que copiar libros dejara de ser tarea de meses.", "https://www.britannica.com/technology/printing-press"),
+    ("La bicicleta moderna necesitó pedales, cadena y neumáticos para volverse cómoda.", "https://www.britannica.com/technology/bicycle"),
+    ("El teléfono fue patentado como una forma de transmitir voz por cable.", "https://www.loc.gov/collections/alexander-graham-bell-papers/articles-and-essays/alexander-graham-bell-family-papers-at-the-library-of-congress/alexander-graham-bell-as-inventor-and-scientist/"),
+    ("La bombilla útil dependía tanto del filamento como del vacío interior.", "https://www.energy.gov/articles/history-light-bulb"),
+    ("La brújula permitió navegar aunque el cielo estuviera cubierto.", "https://www.britannica.com/technology/compass-navigational-instrument")
+  ]
+}
+
+def main():
+    grouped = {}
+    for category, entries in FACTS.items():
+        tone = "humor blanco" if category == "humor" else "curioso"
+        grouped[category] = [
+            {
+                "id": f"{category}_{index:04d}",
+                "category": category,
+                "text": text,
+                "tone": tone,
+                "safe": True,
+                "source": source,
+            }
+            for index, (text, source) in enumerate(entries, start=1)
+        ]
+    Path("data/facts/facts.json").write_text(
+        json.dumps(grouped, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+if __name__ == "__main__":
+    main()

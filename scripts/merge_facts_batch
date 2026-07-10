@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import re
+from pathlib import Path
+
+VALID_CATEGORIES = ["historia", "naturaleza", "espacio", "ciencia", "humor", "inventos"]
+DEFAULT_TONE = "curioso"
+DEFAULT_SOURCE = "verificable"
+
+
+def load_json_or_jsonl(path):
+    raw = path.read_text(encoding="utf-8").strip()
+    if not raw:
+        return []
+    if path.suffix.lower() == ".jsonl":
+        return [json.loads(line) for line in raw.splitlines() if line.strip()]
+    data = json.loads(raw)
+    if isinstance(data, dict):
+        items = []
+        for category, category_items in data.items():
+            for item in category_items:
+                item.setdefault("category", category)
+                items.append(item)
+        return items
+    if isinstance(data, list):
+        return data
+    raise ValueError("El lote debe ser JSONL, una lista JSON o un JSON agrupado por categorías.")
+
+
+def load_facts(path):
+    if not path.exists():
+        return {category: [] for category in VALID_CATEGORIES}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    for category in VALID_CATEGORIES:
+        data.setdefault(category, [])
+    return data
+
+
+def next_index(existing_items, category):
+    highest = 0
+    pattern = re.compile(rf"^{re.escape(category)}_(\d+)$")
+    for item in existing_items:
+        match = pattern.match(str(item.get("id", "")))
+        if match:
+            highest = max(highest, int(match.group(1)))
+    return highest + 1
+
+
+def normalize_item(item):
+    category = item.get("category")
+    if category not in VALID_CATEGORIES:
+        raise ValueError(f"Categoría no válida en lote: {category}")
+    text = str(item.get("text", "")).strip()
+    if not text:
+        raise ValueError("Hay un item de lote sin texto.")
+    return {
+        "category": category,
+        "text": text,
+        "tone": item.get("tone") or DEFAULT_TONE,
+        "safe": item.get("safe", True) is True,
+        "source": item.get("source") or DEFAULT_SOURCE,
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Añade un lote de curiosidades a facts.json.")
+    parser.add_argument("batch", help="Ruta del lote JSON o JSONL.")
+    parser.add_argument("--facts", default="data/facts/facts.json", help="Ruta del JSON agrupado principal.")
+    args = parser.parse_args()
+
+    facts_path = Path(args.facts)
+    batch_items = [normalize_item(item) for item in load_json_or_jsonl(Path(args.batch))]
+    facts = load_facts(facts_path)
+    next_ids = {category: next_index(facts[category], category) for category in VALID_CATEGORIES}
+
+    for item in batch_items:
+        category = item.pop("category")
+        item["id"] = f"{category}_{next_ids[category]:04d}"
+        next_ids[category] += 1
+        item["category"] = category
+        facts[category].append({
+            "id": item["id"],
+            "category": item["category"],
+            "text": item["text"],
+            "tone": item["tone"],
+            "safe": item["safe"],
+            "source": item["source"],
+        })
+
+    facts_path.write_text(
+        json.dumps(facts, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    print(f"Añadidos {len(batch_items)} items a {facts_path}.")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,25 @@
+{
+  "name": "PapaTalk - Comunicación UCI",
+  "short_name": "PapaTalk",
+  "description": "Tablero de comunicación con pictogramas para pacientes intubados en UCI",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f5f5",
+  "theme_color": "#2E7D32",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

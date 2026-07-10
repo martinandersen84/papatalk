@@ -1,0 +1,291 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import re
+import sys
+from collections import Counter, defaultdict
+from difflib import SequenceMatcher
+from pathlib import Path
+
+VALID_CATEGORIES = ["historia", "naturaleza", "espacio", "ciencia", "humor", "inventos"]
+MIN_ITEMS_PER_CATEGORY = 15
+MAX_TEXT_LENGTH = 120
+NEAR_DUPLICATE_RATIO = 0.9
+NEAR_DUPLICATE_KEYWORD_JACCARD = 0.8
+STOPWORDS = {
+    "a", "al", "algo", "ante", "asi", "así", "cada", "como", "con", "contra",
+    "cuando", "de", "del", "desde", "durante", "e", "el", "en", "entre", "era",
+    "es", "esa", "ese", "eso", "esta", "este", "esto", "ha", "hace", "hacen",
+    "hacia", "hasta", "la", "las", "lo", "los", "mas", "más", "mucho", "muy",
+    "o", "para", "pero", "por", "porque", "que", "se", "segun", "según", "sin",
+    "son", "su", "sus", "tambien", "también", "un", "una", "unas", "unos", "y"
+}
+SENSITIVE_WORDS = [
+    "muerte", "muerto", "morir", "fallec", "enfermedad", "hospital", "uci",
+    "guerra", "batalla", "arma", "violencia", "sangre", "herida", "dolor",
+    "politica", "política", "partido", "religion", "religión", "dios",
+    "catastrofe", "catástrofe", "terremoto", "incendio", "inundacion",
+    "inundación", "sexo", "droga", "drogas", "alcohol", "cancer", "cáncer",
+    "suicidio", "ansiedad", "depresion", "depresión", "terror", "miedo"
+]
+SENSITIVE_STEMS = ["fallec"]
+GENERIC_PHRASES = [
+    "ayuda a entender",
+    "despierta curiosidad",
+    "invita a",
+    "muestra que",
+    "recuerda que",
+    "revela que",
+    "forma parte de",
+    "permite observar",
+    "aporta variedad",
+    "tiene detalles",
+    "usa formas",
+]
+
+
+def normalize_text(text):
+    text = text.lower().strip()
+    text = re.sub(r"[^\wáéíóúüñ]+", " ", text, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def keyword_set(text):
+    return {
+        token
+        for token in normalize_text(text).split()
+        if len(token) >= 4 and token not in STOPWORDS
+    }
+
+
+def load_grouped_json(path):
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"JSON no válido: {exc}") from exc
+
+    if not isinstance(data, dict):
+        raise ValueError("El archivo debe estar agrupado por categorías en un objeto JSON.")
+    return data
+
+
+def flatten(data):
+    items = []
+    for category, category_items in data.items():
+        if not isinstance(category_items, list):
+            raise ValueError(f"La categoría {category} debe contener una lista.")
+        items.extend(category_items)
+    return items
+
+
+def detect_possible_duplicates(items):
+    possible = []
+    normalized = [
+        (
+            item.get("id", "?"),
+            item.get("category", "?"),
+            normalize_text(item.get("text", "")),
+            keyword_set(item.get("text", "")),
+        )
+        for item in items
+    ]
+    for index, (left_id, left_category, left_text, left_keywords) in enumerate(normalized):
+        if not left_text:
+            continue
+        for right_id, right_category, right_text, right_keywords in normalized[index + 1:]:
+            if not right_text:
+                continue
+            text_score = SequenceMatcher(None, left_text, right_text).ratio()
+            keyword_score = 0
+            if left_keywords and right_keywords:
+                keyword_score = len(left_keywords & right_keywords) / len(left_keywords | right_keywords)
+            enough_keywords = len(left_keywords | right_keywords) >= 5
+            same_idea = (
+                keyword_score >= NEAR_DUPLICATE_KEYWORD_JACCARD
+                or (text_score >= NEAR_DUPLICATE_RATIO and keyword_score >= 0.78)
+            )
+            if enough_keywords and same_idea:
+                possible.append({
+                    "left": left_id,
+                    "right": right_id,
+                    "same_category": left_category == right_category,
+                    "text_score": round(text_score, 3),
+                    "keyword_score": round(keyword_score, 3),
+                })
+    return possible
+
+
+def find_sensitive_words(normalized_text):
+    found = []
+    for stem in SENSITIVE_STEMS:
+        if stem in normalized_text:
+            found.append(stem)
+    for word in SENSITIVE_WORDS:
+        pattern = rf"(^|\s){re.escape(word)}($|\s)"
+        if re.search(pattern, normalized_text):
+            found.append(word)
+    return sorted(set(found))
+
+
+def validate(data, min_items_per_category=MIN_ITEMS_PER_CATEGORY):
+    errors = []
+    warnings = []
+    rejected = []
+    items = flatten(data)
+
+    unknown_categories = sorted(set(data.keys()) - set(VALID_CATEGORIES))
+    missing_categories = sorted(set(VALID_CATEGORIES) - set(data.keys()))
+    for category in unknown_categories:
+        errors.append(f"Categoría no válida: {category}")
+    for category in missing_categories:
+        errors.append(f"Falta la categoría: {category}")
+
+    category_counts = Counter()
+    ids = []
+    texts = []
+
+    for item in items:
+        item_id = item.get("id")
+        category = item.get("category")
+        text = item.get("text", "")
+        category_counts[category] += 1
+        ids.append(item_id)
+        texts.append(text)
+
+        item_errors = []
+        if not isinstance(item, dict):
+            errors.append("Hay un item que no es un objeto JSON.")
+            continue
+        for field in ["id", "category", "text", "tone", "safe", "source"]:
+            if field not in item:
+                item_errors.append(f"Falta el campo {field}")
+        if category not in VALID_CATEGORIES:
+            item_errors.append("Categoría inválida")
+        if category in VALID_CATEGORIES and item_id and not str(item_id).startswith(f"{category}_"):
+            item_errors.append("El ID no empieza por la categoría")
+        if item.get("safe") is not True:
+            item_errors.append("safe debe ser true")
+        source = item.get("source")
+        if not isinstance(source, str) or not re.match(r"^https?://", source):
+            item_errors.append("source debe ser una URL real")
+        if not isinstance(text, str) or not text.strip():
+            item_errors.append("text debe ser una frase no vacía")
+        if len(text) > MAX_TEXT_LENGTH:
+            item_errors.append(f"text supera {MAX_TEXT_LENGTH} caracteres")
+        if "\n" in text or text.count(".") + text.count("?") + text.count("!") > 1:
+            item_errors.append("text debe ser una sola frase")
+        normalized = normalize_text(text)
+        found_sensitive = find_sensitive_words(normalized)
+        if found_sensitive:
+            item_errors.append("Contiene palabras sensibles: " + ", ".join(sorted(set(found_sensitive))))
+        found_generic = [phrase for phrase in GENERIC_PHRASES if phrase in normalized]
+        if found_generic:
+            item_errors.append("Frase demasiado genérica: " + ", ".join(found_generic))
+
+        if item_errors:
+            rejected.append({"id": item_id or "sin_id", "text": text, "reasons": item_errors})
+            errors.extend([f"{item_id or 'sin_id'}: {reason}" for reason in item_errors])
+
+    duplicated_ids = sorted([item_id for item_id, count in Counter(ids).items() if item_id and count > 1])
+    duplicated_texts = sorted([text for text, count in Counter(texts).items() if text and count > 1])
+    for item_id in duplicated_ids:
+        errors.append(f"ID duplicado: {item_id}")
+    for text in duplicated_texts:
+        errors.append(f"Texto duplicado exacto: {text}")
+
+    for category in VALID_CATEGORIES:
+        if category_counts[category] < min_items_per_category:
+            warnings.append(
+                f"{category}: {category_counts[category]} items; faltan {min_items_per_category - category_counts[category]}"
+            )
+
+    possible_duplicates = detect_possible_duplicates(items)
+    return {
+        "items": items,
+        "counts": category_counts,
+        "errors": errors,
+        "warnings": warnings,
+        "rejected": rejected,
+        "possible_duplicates": possible_duplicates,
+    }
+
+
+def write_jsonl(items, path):
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        for item in items:
+            handle.write(json.dumps(item, ensure_ascii=False, separators=(",", ":")) + "\n")
+
+
+def write_report(result, path):
+    lines = [
+        "# Informe de facts",
+        "",
+        f"Total de frases: {len(result['items'])}",
+        "",
+        "Nota editorial: esta base prioriza curiosidad real, fuente web y seguridad sobre volumen.",
+        "",
+        "## Total por categoría",
+        "",
+    ]
+    for category in VALID_CATEGORIES:
+        lines.append(f"- {category}: {result['counts'][category]}")
+    lines.extend(["", "## Frases rechazadas", ""])
+    if result["rejected"]:
+        for entry in result["rejected"]:
+            reasons = "; ".join(entry["reasons"])
+            lines.append(f"- {entry['id']}: {reasons}")
+    else:
+        lines.append("- Ninguna.")
+    lines.extend(["", "## Posibles duplicados detectados", ""])
+    if result["possible_duplicates"]:
+        for entry in result["possible_duplicates"]:
+            scope = "misma categoría" if entry["same_category"] else "categorías distintas"
+            lines.append(
+                f"- {entry['left']} / {entry['right']} ({scope}); "
+                f"texto {entry['text_score']}; claves {entry['keyword_score']}"
+            )
+    else:
+        lines.append("- Ninguno.")
+    lines.extend(["", "## Avisos", ""])
+    if result["warnings"]:
+        for warning in result["warnings"]:
+            lines.append(f"- {warning}")
+    else:
+        lines.append("- Ninguno.")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Valida la base local de curiosidades de PapaTalk.")
+    parser.add_argument("--facts", default="data/facts/facts.json", help="Ruta del JSON agrupado.")
+    parser.add_argument("--jsonl", default="data/facts/facts.jsonl", help="Ruta de salida JSONL.")
+    parser.add_argument("--report", default="data/facts/report.md", help="Ruta del informe.")
+    parser.add_argument("--min-per-category", type=int, default=MIN_ITEMS_PER_CATEGORY, help="Mínimo requerido por categoría.")
+    parser.add_argument("--strict-minimum", action="store_true", help="Convierte el mínimo por categoría en error.")
+    parser.add_argument("--fail-near-duplicates", action="store_true", help="Falla si detecta frases muy parecidas.")
+    args = parser.parse_args()
+
+    facts_path = Path(args.facts)
+    result = validate(load_grouped_json(facts_path), min_items_per_category=args.min_per_category)
+    write_jsonl(result["items"], Path(args.jsonl))
+    write_report(result, Path(args.report))
+
+    for error in result["errors"]:
+        print(f"ERROR: {error}")
+    for warning in result["warnings"]:
+        print(f"AVISO: {warning}")
+
+    failed = (
+        bool(result["errors"])
+        or (args.strict_minimum and bool(result["warnings"]))
+        or (args.fail_near_duplicates and bool(result["possible_duplicates"]))
+    )
+    if failed:
+        return 1
+    print(f"OK: {len(result['items'])} frases validadas. JSONL e informe actualizados.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

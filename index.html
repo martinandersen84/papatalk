@@ -1,0 +1,1816 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <!-- Development: ask browsers not to reuse stale HTML while iterating. -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PapaTalk">
+  <meta name="theme-color" content="#2E7D32">
+  <title>PapaTalk</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --header-h: 56px;
+      --green: #43A047;
+      --red: #E53935;
+      --blue: #1E88E5;
+      --orange: #FF8F00;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: #f5f5f5;
+      -webkit-text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ══════════════════════════════════
+       Setup screen
+       ══════════════════════════════════ */
+    #setup-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      height: 100dvh;
+      padding: 24px 20px;
+      padding-top: calc(24px + var(--safe-top));
+      padding-bottom: calc(24px + var(--safe-bottom));
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #setup-screen.hidden { display: none; }
+
+    .setup-logo {
+      font-size: 36px;
+      font-weight: 900;
+      color: #2E7D32;
+      margin-bottom: 4px;
+    }
+    .setup-subtitle {
+      font-size: 15px;
+      color: #666;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .setup-section {
+      width: 100%;
+      max-width: 500px;
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    .setup-section h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .setup-section h2 .icon { font-size: 20px; }
+    .setup-section--urgency {
+      background: #FFF5F5;
+      border: 2px solid #FFCDD2;
+    }
+    .setup-section--urgency h2 { color: #C62828; }
+    .setup-section--urgency p { color: #555; }
+
+    .key-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .key-row:last-child { border-bottom: none; }
+    .key-label {
+      font-size: 15px;
+      font-weight: 600;
+      color: #444;
+    }
+    .key-btn {
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      background: #fafafa;
+      color: #333;
+      cursor: pointer;
+      min-width: 140px;
+      text-align: center;
+      transition: border-color .2s, background .2s;
+    }
+    .key-btn.listening {
+      border-color: #2E7D32;
+      background: #E8F5E9;
+      color: #2E7D32;
+      animation: pulse-border 1s ease-in-out infinite;
+    }
+    @keyframes pulse-border {
+      0%, 100% { border-color: #2E7D32; }
+      50% { border-color: #81C784; }
+    }
+
+    .voice-row {
+      margin-top: 14px;
+    }
+    .voice-row label {
+      display: block;
+      font-size: 15px;
+      font-weight: 600;
+      color: #444;
+      margin-bottom: 8px;
+    }
+    .voice-select-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .voice-select-wrap select {
+      flex: 1;
+      padding: 8px 10px;
+      font-size: 14px;
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      background: #fafafa;
+      color: #333;
+      cursor: pointer;
+      appearance: auto;
+    }
+    .voice-test {
+      width: 40px; height: 40px;
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      background: #fafafa;
+      font-size: 16px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background .2s;
+    }
+    .voice-test:active { background: #E8F5E9; }
+
+    .duration-row {
+      padding: 10px 0 0;
+    }
+    .duration-row label {
+      display: block;
+      font-size: 15px;
+      font-weight: 600;
+      color: #444;
+      margin-bottom: 10px;
+    }
+    .slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .slider-wrap input[type="range"] {
+      flex: 1;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: #ddd;
+      border-radius: 3px;
+      outline: none;
+    }
+    .slider-wrap input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: #2E7D32;
+      cursor: pointer;
+    }
+    .duration-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #2E7D32;
+      min-width: 55px;
+      text-align: right;
+    }
+
+    .setup-section p {
+      font-size: 14px;
+      color: #555;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    .setup-section ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .setup-section ul li {
+      padding: 6px 0;
+      font-size: 14px;
+      color: #555;
+      line-height: 1.4;
+      display: flex;
+      gap: 8px;
+    }
+    .setup-section ul li strong { color: #333; }
+    .mode-icon { flex-shrink: 0; font-size: 18px; width: 24px; text-align: center; }
+
+    .key-desc {
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+      color: #555;
+      line-height: 1.5;
+    }
+    .key-desc:last-child { border-bottom: none; }
+    .key-desc strong { color: #333; display: block; margin-bottom: 2px; }
+
+    .btn-start {
+      display: block;
+      width: 100%;
+      max-width: 500px;
+      padding: 18px;
+      font-size: 22px;
+      font-weight: 800;
+      border: none;
+      border-radius: 16px;
+      background: #2E7D32;
+      color: #fff;
+      cursor: pointer;
+      margin-bottom: 20px;
+      transition: background .15s, transform .1s;
+    }
+    .btn-start:active { background: #1B5E20; transform: scale(.97); }
+
+    /* ── Test overlay ── */
+    #test-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 200;
+      background: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      padding: 24px;
+    }
+    #test-overlay.hidden { display: none; }
+
+    .test-close {
+      position: absolute;
+      top: 16px; right: 16px;
+      width: 48px; height: 48px;
+      font-size: 28px;
+      font-weight: 700;
+      border: none;
+      border-radius: 50%;
+      background: #eee;
+      color: #666;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .test-close:active { background: #ddd; transform: scale(.9); }
+
+    .test-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: #333;
+    }
+
+    .test-circles {
+      display: flex;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .test-circle-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .test-circle {
+      width: 140px; height: 140px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      transition: transform .1s ease-out;
+      box-shadow: 0 4px 16px rgba(0,0,0,.15);
+    }
+    .test-circle.pressed {
+      transform: scale(0.65);
+      box-shadow: 0 2px 8px rgba(0,0,0,.1);
+    }
+    .test-circle--scan { background: #43A047; }
+    .test-circle--back { background: #455A64; }
+    .test-circle.long {
+      transform: scale(0.65);
+      box-shadow: 0 0 30px 10px rgba(255, 214, 0, .6);
+      outline: 4px solid #FFD600;
+      outline-offset: 4px;
+    }
+
+    .test-key-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #888;
+    }
+
+    .test-hint {
+      font-size: 14px;
+      color: #aaa;
+      text-align: center;
+    }
+
+    .btn-test {
+      display: block;
+      width: 100%;
+      max-width: 500px;
+      padding: 14px;
+      font-size: 17px;
+      font-weight: 700;
+      border: 2px solid #ddd;
+      border-radius: 14px;
+      background: #fff;
+      color: #555;
+      cursor: pointer;
+      margin-bottom: 12px;
+      transition: background .15s;
+    }
+    .btn-test:active { background: #f0f0f0; }
+
+    .setup-hint {
+      max-width: 500px;
+      font-size: 13px;
+      color: #999;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .setup-attribution {
+      max-width: 500px;
+      font-size: 11px;
+      color: #999;
+      text-align: center;
+      line-height: 1.6;
+    }
+    .setup-attribution a { color: #888; }
+
+    /* ══════════════════════════════════
+       Board (app)
+       ══════════════════════════════════ */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      padding-top: var(--safe-top);
+      padding-bottom: var(--safe-bottom);
+      position: relative;
+    }
+    #app.hidden { display: none; }
+
+    /* ── Overlay ── */
+    #selected-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 20px 32px;
+      padding-top: calc(20px + var(--safe-top));
+      background: var(--green);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(0,0,0,.35);
+      cursor: pointer;
+      transition: transform .25s ease, opacity .25s ease;
+    }
+    #selected-overlay.hidden {
+      transform: translateY(-100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    #selected-img {
+      width: 110px; height: 110px;
+      object-fit: contain;
+      background: #fff;
+      border-radius: 16px;
+      padding: 8px;
+      flex-shrink: 0;
+    }
+    #selected-text {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 700;
+      line-height: 1.15;
+      text-align: left;
+    }
+    .letter-overlay {
+      font-size: clamp(60px, 15vw, 120px) !important;
+      letter-spacing: 4px;
+    }
+
+    /* ── Header ── */
+    #group-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      height: var(--header-h);
+      flex-shrink: 0;
+      background: #fff;
+      border-bottom: 2px solid #ddd;
+      z-index: 10;
+    }
+    #group-header.hidden { display: none; }
+
+    #btn-back {
+      flex-shrink: 0;
+      padding: 10px 22px;
+      font-size: 20px;
+      font-weight: 700;
+      border: none;
+      border-radius: 14px;
+      background: #455A64;
+      color: #fff;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    #btn-back:active { background: #37474F; transform: scale(.95); }
+
+    #group-title {
+      font-size: clamp(20px, 3.5vw, 30px);
+      font-weight: 700;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    #btn-settings {
+      flex-shrink: 0;
+      width: 40px; height: 40px;
+      font-size: 22px;
+      border: none;
+      border-radius: 10px;
+      background: transparent;
+      color: #999;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #btn-settings:active { background: #eee; }
+
+    /* ── Writer bar ── */
+    #writer-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      flex-shrink: 0;
+    }
+    #writer-bar.hidden { display: none; }
+
+    #writer-text {
+      flex: 1;
+      font-size: 28px;
+      font-weight: 700;
+      color: #333;
+      letter-spacing: 3px;
+      min-height: 48px;
+      line-height: 48px;
+      padding: 4px 14px;
+      background: #FFF8E1;
+      border: 3px solid #FF8F00;
+      border-radius: 12px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    #writer-clear {
+      flex-shrink: 0;
+      padding: 10px 18px;
+      font-size: 16px;
+      font-weight: 700;
+      border: 3px solid #E53935;
+      border-radius: 12px;
+      background: #FFEBEE;
+      color: #C62828;
+      cursor: pointer;
+      min-height: 48px;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    #writer-clear:active { background: #FFCDD2; transform: scale(.95); }
+
+    /* ── Grid container ── */
+    #grid-container {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      padding: 10px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 10px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .grid--groups {
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: repeat(3, 1fr);
+    }
+    .grid--groups .card:nth-child(5) {
+      grid-column: 1 / -1;
+    }
+
+    .grid--items {
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+    }
+
+    .grid--subgroups {
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+    }
+
+    .grid--letters {
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: 1fr;
+    }
+    .grid--letters .card:nth-child(10) {
+      grid-column: 2;
+    }
+
+    /* ── Card ── */
+    .card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 6px;
+      background: #fff;
+      border-radius: 18px;
+      border: 4px solid #e0e0e0;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      cursor: pointer;
+      transition: transform .12s ease, border-color .12s ease;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .card:active {
+      transform: scale(.94);
+      box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+
+    .card img {
+      width: 100%;
+      max-width: 140px;
+      flex: 1 1 auto;
+      min-height: 0;
+      object-fit: contain;
+    }
+
+    .card span {
+      font-size: clamp(13px, 2.2vw, 20px);
+      font-weight: 700;
+      text-align: center;
+      color: #222;
+      line-height: 1.15;
+      flex-shrink: 0;
+    }
+
+    .card--group img { max-width: 180px; }
+    .card--group span { font-size: clamp(18px, 3vw, 28px); }
+
+    .card[data-group="general"]        { border-color: var(--green); }
+    .card[data-group="cuerpo"]         { border-color: var(--red); }
+    .card[data-group="quiero"]         { border-color: var(--blue); }
+    .card[data-group="letras_numeros"] { border-color: var(--orange); }
+    .card[data-group="juegos"]         { border-color: #7B1FA2; }
+    .card[data-group="curiosidades"]   { border-color: #0288D1; }
+
+    .grid--items[data-color="general"] .card        { border-color: var(--green); }
+    .grid--items[data-color="cuerpo"] .card          { border-color: var(--red); }
+    .grid--items[data-color="quiero"] .card           { border-color: var(--blue); }
+    .grid--items[data-color="letras_numeros"] .card   { border-color: var(--orange); }
+    .grid--items[data-color="juegos"] .card           { border-color: #7B1FA2; }
+
+    .card--si { background: #E8F5E9; border-color: #2E7D32 !important; }
+    .card--no { background: #FFEBEE; border-color: #C62828 !important; }
+
+    .card--letter { background: #FFF8E1; }
+    .letter-big {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(48px, 12vw, 110px);
+      font-weight: 900;
+      color: #333;
+      flex: 1;
+      min-height: 0;
+      letter-spacing: 3px;
+      line-height: 1;
+    }
+    .card--group .letter-big {
+      display: block;
+      flex: 0 0 auto;
+      font-size: clamp(32px, 8vw, 56px);
+      word-spacing: 16px;
+      line-height: 1.4;
+      text-align: center;
+      white-space: pre-line;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .grid .card {
+      animation: fadeIn .2s ease both;
+    }
+    .grid .card:nth-child(2)  { animation-delay: .03s; }
+    .grid .card:nth-child(3)  { animation-delay: .06s; }
+    .grid .card:nth-child(4)  { animation-delay: .09s; }
+    .grid .card:nth-child(5)  { animation-delay: .12s; }
+    .grid .card:nth-child(6)  { animation-delay: .15s; }
+    .grid .card:nth-child(7)  { animation-delay: .18s; }
+    .grid .card:nth-child(8)  { animation-delay: .21s; }
+    .grid .card:nth-child(9)  { animation-delay: .24s; }
+
+    /* ── Scan highlight ── */
+    @keyframes scanPulse {
+      0%, 100% { outline-color: #FFD600; box-shadow: 0 0 18px 6px rgba(255, 214, 0, .55); }
+      50%      { outline-color: #FF6F00; box-shadow: 0 0 24px 8px rgba(255, 111, 0, .65); }
+    }
+    .scan-highlight {
+      outline: 6px solid #FFD600 !important;
+      outline-offset: 4px;
+      box-shadow: 0 0 18px 6px rgba(255, 214, 0, .55) !important;
+      animation: scanPulse 1s ease-in-out infinite !important;
+      z-index: 20;
+      position: relative;
+    }
+    #btn-back.scan-highlight { outline-offset: 2px; }
+
+    .card img.img-error {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #e0e0e0;
+      min-height: 80px;
+    }
+
+    @media (min-width: 900px) and (orientation: landscape) {
+      .card--group img { max-width: 200px; }
+      .card img { max-width: 160px; }
+    }
+    @media (min-width: 1200px) {
+      #selected-img { width: 140px; height: 140px; }
+      .card img { max-width: 180px; }
+    }
+
+    /* ── Urgency overlay ── */
+    #urgency-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #D32F2F;
+      animation: urgencyPulse 1.2s ease-in-out infinite;
+    }
+    #urgency-overlay.hidden { display: none; }
+    @keyframes urgencyPulse {
+      0%, 100% { background: #D32F2F; }
+      50% { background: #B71C1C; }
+    }
+    #urgency-overlay h1 {
+      font-size: clamp(52px, 12vw, 96px);
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 4px 20px rgba(0,0,0,.3);
+      margin-bottom: 20px;
+      letter-spacing: 4px;
+    }
+    #urgency-overlay .urgency-icon {
+      font-size: clamp(60px, 14vw, 110px);
+      margin-bottom: 16px;
+      animation: urgencyBell 0.6s ease-in-out infinite alternate;
+    }
+    @keyframes urgencyBell {
+      0% { transform: rotate(-15deg); }
+      100% { transform: rotate(15deg); }
+    }
+    #urgency-close {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 201;
+      padding: 12px 28px;
+      font-size: 22px;
+      font-weight: 700;
+      border: 3px solid #fff;
+      border-radius: 14px;
+      background: rgba(0,0,0,0.3);
+      color: #fff;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+    }
+    #urgency-close:active { background: rgba(0,0,0,0.5); transform: scale(.95); }
+  </style>
+</head>
+<body>
+
+  <!-- ══════ Setup screen ══════ -->
+  <div id="setup-screen">
+    <div class="setup-logo">PapaTalk</div>
+    <div class="setup-subtitle">Tablero de comunicaci&oacute;n para pacientes</div>
+
+    <button class="btn-start" id="btn-start" onclick="startApp()">&#9654; Comenzar</button>
+    <div class="setup-hint">O pulsa la tecla de avanzar para comenzar</div>
+
+    <div class="setup-section">
+      <h2><span class="icon">&#9432;</span> C&oacute;mo funciona</h2>
+      <p>PapaTalk puede usarse de dos formas:</p>
+      <ul>
+        <li><span class="mode-icon">&#128400;</span>
+          <span><strong>T&aacute;ctil / rat&oacute;n:</strong> toca o haz clic directamente en las tarjetas para navegar y comunicar.</span>
+        </li>
+        <li><span class="mode-icon">&#9000;</span>
+          <span><strong>Teclado / pulsador:</strong> usa dos botones configurables para navegar mediante pulsaciones.</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="setup-section">
+      <h2><span class="icon">&#128266;</span> S&iacute;ntesis de voz</h2>
+      <p>Cada tarjeta seleccionada se lee en voz alta autom&aacute;ticamente. Al navegar con el pulsador, tambi&eacute;n se lee cada tarjeta al pasar por ella.</p>
+      <div class="voice-row">
+        <label for="voice-select">Voz</label>
+        <div class="voice-select-wrap">
+          <select id="voice-select"></select>
+          <button class="voice-test" id="voice-test" onclick="testVoice()">&#9654;</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="setup-section">
+      <h2><span class="icon">&#9000;</span> Controles del pulsador</h2>
+      <div class="key-desc">
+        <strong>Adelante (pulsaci&oacute;n corta)</strong>
+        Mueve el resaltado a la siguiente tarjeta y lee su nombre en voz alta.
+      </div>
+      <div class="key-desc">
+        <strong>Adelante (mantener pulsado)</strong>
+        Selecciona la tarjeta resaltada. Dice &laquo;Selecci&oacute;n: ...&raquo; y ejecuta la acci&oacute;n.
+      </div>
+      <div class="key-desc">
+        <strong>Atr&aacute;s (pulsaci&oacute;n corta)</strong>
+        Mueve el resaltado a la tarjeta anterior.
+      </div>
+      <div class="key-desc">
+        <strong>Atr&aacute;s (mantener pulsado)</strong>
+        En la pantalla de letras y n&uacute;meros, borra el &uacute;ltimo car&aacute;cter escrito.
+      </div>
+    </div>
+
+    <div class="setup-section setup-section--urgency">
+      <h2><span class="icon">&#128680;</span> Llamada de urgencia</h2>
+      <p>El paciente puede activar una alerta de urgencia de dos formas:</p>
+      <ul>
+        <li><span class="mode-icon">&#9889;</span>
+          <span><strong>5 pulsaciones r&aacute;pidas</strong> de cualquier bot&oacute;n en la ventana de tiempo configurada.</span>
+        </li>
+        <li><span class="mode-icon">&#128400;</span>
+          <span><strong>Mantener pulsado</strong> cualquier bot&oacute;n durante m&aacute;s de 3 segundos.</span>
+        </li>
+      </ul>
+      <p>Se activa una pantalla roja con alarma sonora. Pulsa cualquier tecla o el bot&oacute;n Volver para desactivarla.</p>
+      <div class="duration-row">
+        <label>Ventana de detecci&oacute;n (5 pulsaciones en...)</label>
+        <div class="slider-wrap">
+          <input type="range" id="urgency-slider" min="1000" max="5000" step="250">
+          <span class="duration-value" id="urgency-value"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="setup-section">
+      <h2><span class="icon">&#9881;</span> Configuraci&oacute;n del pulsador</h2>
+      <div class="key-row">
+        <span class="key-label">Adelante</span>
+        <button class="key-btn" id="key-scan" onclick="startCapture('scan')"></button>
+      </div>
+      <div class="key-row">
+        <span class="key-label">Atr&aacute;s</span>
+        <button class="key-btn" id="key-back" onclick="startCapture('back')"></button>
+      </div>
+      <div class="duration-row">
+        <label>Pulsaci&oacute;n larga (seleccionar)</label>
+        <div class="slider-wrap">
+          <input type="range" id="duration-slider" min="300" max="1500" step="50">
+          <span class="duration-value" id="duration-value"></span>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-test" onclick="openTest()">&#127919; Probar botones</button>
+
+    <div class="setup-attribution">
+      <strong>PapaTalk</strong> &mdash; Tablero de comunicaci&oacute;n aumentativa para pacientes intubados en UCI.<br>
+      Autor: <a href="https://martinandersen.es" target="_blank" rel="noopener">Martin Andersen</a> &middot; <a href="https://martinandersen.es" target="_blank" rel="noopener">martinandersen.es</a><br>
+      Basado en sistemas CAA (Comunicaci&oacute;n Aumentativa y Alternativa) con barrido por pulsador.<br><br>
+      Pictogramas: Sergio Palao &middot; Origen: <a href="https://www.arasaac.org" target="_blank" rel="noopener">ARASAAC</a> &middot;
+      Licencia: CC (BY-NC-SA) &middot; Propiedad: Gobierno de Arag&oacute;n
+    </div>
+  </div>
+
+  <!-- ══════ Test overlay ══════ -->
+  <div id="test-overlay" class="hidden">
+    <button class="test-close" onclick="closeTest()">&#10005;</button>
+    <div class="test-title">Prueba de botones</div>
+    <div class="test-circles">
+      <div class="test-circle-wrap">
+        <div class="test-circle test-circle--back" id="test-back">Volver</div>
+        <div class="test-key-name" id="test-back-key"></div>
+      </div>
+      <div class="test-circle-wrap">
+        <div class="test-circle test-circle--scan" id="test-scan">Avanzar</div>
+        <div class="test-key-name" id="test-scan-key"></div>
+      </div>
+    </div>
+    <div class="test-hint">Pulsa los botones configurados para probarlos</div>
+  </div>
+
+  <!-- ══════ Board ══════ -->
+  <div id="urgency-overlay" class="hidden">
+    <button id="urgency-close" onclick="dismissUrgency()">&#9664; Volver</button>
+    <div class="urgency-icon">🔔</div>
+    <h1>Atenci&oacute;n</h1>
+  </div>
+
+  <div id="app" class="hidden">
+    <div id="selected-overlay" class="hidden" onclick="dismissOverlay()">
+      <img id="selected-img" src="" alt="">
+      <span id="selected-text"></span>
+    </div>
+    <header id="group-header" class="hidden">
+      <button id="btn-back" onclick="goBack()">&#9664; Volver</button>
+      <h1 id="group-title"></h1>
+      <button id="btn-settings" onclick="openSetup()" title="Configuraci&oacute;n">&#9881;</button>
+    </header>
+    <main id="grid-container"></main>
+    <div id="writer-bar" class="hidden">
+      <div id="writer-text"></div>
+      <button id="writer-clear" onclick="clearWriter()">Borrar</button>
+    </div>
+  </div>
+
+<script>
+/* ================================================================
+   PapaTalk — Tablero simplificado UCI
+   ================================================================ */
+
+/* ── Config ── */
+const DEFAULTS = { scanCode: 'ArrowRight', backCode: 'ArrowLeft', longPress: 600, voiceURI: '', urgencyWindow: 3000 };
+let config = Object.assign({}, DEFAULTS);
+
+function loadConfig() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('papatalk-config'));
+    if (saved) Object.assign(config, saved);
+  } catch (_) {}
+}
+function saveConfig() {
+  localStorage.setItem('papatalk-config', JSON.stringify(config));
+}
+
+function keyName(code) {
+  const map = {
+    ArrowRight: '→ Flecha derecha',
+    ArrowLeft: '← Flecha izquierda',
+    ArrowUp: '↑ Flecha arriba',
+    ArrowDown: '↓ Flecha abajo',
+    Space: 'Espacio',
+    Enter: 'Enter',
+    Escape: 'Escape',
+    Tab: 'Tab',
+    Backspace: 'Retroceso',
+  };
+  if (map[code]) return map[code];
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  return code;
+}
+
+/* ── Setup screen ── */
+let capturing = null;
+
+function refreshSetupUI() {
+  document.getElementById('key-scan').textContent = keyName(config.scanCode);
+  document.getElementById('key-back').textContent = keyName(config.backCode);
+  document.getElementById('duration-slider').value = config.longPress;
+  document.getElementById('duration-value').textContent = config.longPress + ' ms';
+  document.getElementById('urgency-slider').value = config.urgencyWindow;
+  document.getElementById('urgency-value').textContent = (config.urgencyWindow / 1000).toFixed(1) + ' s';
+  const vs = document.getElementById('voice-select');
+  if (vs && config.voiceURI) vs.value = config.voiceURI;
+}
+
+function startCapture(which) {
+  if (capturing) {
+    document.getElementById('key-' + capturing).classList.remove('listening');
+  }
+  capturing = which;
+  const btn = document.getElementById('key-' + which);
+  btn.classList.add('listening');
+  btn.textContent = 'Pulsa una tecla…';
+}
+
+function handleSetupKey(e) {
+  if (!capturing) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const code = e.code;
+  if (capturing === 'scan') config.scanCode = code;
+  else config.backCode = code;
+  saveConfig();
+  const btn = document.getElementById('key-' + capturing);
+  btn.classList.remove('listening');
+  capturing = null;
+  refreshSetupUI();
+}
+
+function openSetup() {
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('setup-screen').classList.remove('hidden');
+  capturing = null;
+  refreshSetupUI();
+}
+
+function startApp() {
+  if (capturing) {
+    document.getElementById('key-' + capturing).classList.remove('listening');
+    capturing = null;
+  }
+  saveConfig();
+  document.getElementById('setup-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  showGroups();
+}
+
+document.getElementById('duration-slider').addEventListener('input', function () {
+  config.longPress = parseInt(this.value);
+  document.getElementById('duration-value').textContent = config.longPress + ' ms';
+  saveConfig();
+});
+
+document.getElementById('urgency-slider').addEventListener('input', function () {
+  config.urgencyWindow = parseInt(this.value);
+  document.getElementById('urgency-value').textContent = (config.urgencyWindow / 1000).toFixed(1) + ' s';
+  saveConfig();
+});
+
+/* ── Test mode ── */
+let testMode = false;
+let testScanDown = false;
+let testBackDown = false;
+let testScanTimer = null;
+let testBackTimer = null;
+let audioCtx = null;
+
+function playTone(freq, duration, vol) {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  const v = vol || 0.25;
+  gain.gain.setValueAtTime(v, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function openTest() {
+  testMode = true;
+  testScanDown = false;
+  testBackDown = false;
+  document.getElementById('test-scan-key').textContent = keyName(config.scanCode);
+  document.getElementById('test-back-key').textContent = keyName(config.backCode);
+  document.getElementById('test-overlay').classList.remove('hidden');
+}
+
+function closeTest() {
+  testMode = false;
+  document.getElementById('test-overlay').classList.add('hidden');
+  document.getElementById('test-scan').classList.remove('pressed');
+  document.getElementById('test-back').classList.remove('pressed');
+}
+
+/* ── Data ── */
+const DATA = [
+  {
+    id: 'general',
+    label: 'General',
+    img: 'img/pictograms/group_general.png',
+    color: '#43A047',
+    items: [
+      { label: 'Me duele',         img: 'img/pictograms/dolor.png', nav: 'cuerpo', prefix: 'Me duele' },
+      { label: 'Me pica',          img: 'img/pictograms/pica.png', nav: 'cuerpo', prefix: 'Me pica' },
+      { label: 'Sed',              img: 'img/pictograms/beber.png' },
+      { label: 'Sí',               img: 'img/pictograms/si.png', css: 'card--si' },
+      { label: 'No',               img: 'img/pictograms/no_item.png', css: 'card--no' },
+      { label: 'No sé',            img: 'img/pictograms/no_se.png' },
+      { label: 'Tengo calor',      img: 'img/pictograms/calor.png' },
+      { label: 'Tengo frío',       img: 'img/pictograms/frio.png' },
+      { label: '¿Qué hora / día?', img: 'img/pictograms/hora.png' },
+    ]
+  },
+  {
+    id: 'cuerpo',
+    label: 'Cuerpo',
+    img: 'img/pictograms/group_donde_duele.png',
+    color: '#E53935',
+    items: [
+      { label: 'Cabeza',    img: 'img/pictograms/cabeza.png',  spoken: 'la cabeza' },
+      { label: 'Cuello',    img: 'img/pictograms/cuello.png',  spoken: 'el cuello' },
+      { label: 'Espalda',   img: 'img/pictograms/espalda.png', spoken: 'la espalda' },
+      { label: 'Brazos',    img: 'img/pictograms/brazos.png',  spoken: 'los brazos' },
+      { label: 'Barriga',   img: 'img/pictograms/barriga.png', spoken: 'la barriga' },
+      { label: 'Culo',      img: 'img/pictograms/culo.png',    spoken: 'el culo' },
+      { label: 'Piernas',   img: 'img/pictograms/piernas.png', spoken: 'las piernas' },
+      { label: 'Sonda',     img: 'img/pictograms/sonda.png',   spoken: 'la sonda' },
+      { label: 'La vía',    img: 'img/pictograms/via.png',     spoken: 'la vía' },
+    ]
+  },
+  {
+    id: 'quiero',
+    label: 'Quiero',
+    img: 'img/pictograms/group_que_quiero.png',
+    color: '#1E88E5',
+    items: [
+      { label: 'Pis / caca',        img: 'img/pictograms/pis.png' },
+      { label: 'Mi móvil',     img: 'img/pictograms/movil.png' },
+      { label: 'Info. de mi estado', img: 'img/pictograms/enfermedad.png' },
+      { label: 'Música',       img: 'img/pictograms/musica.png' },
+      { label: 'Película',     img: 'img/pictograms/pelicula.png' },
+      { label: 'Descansar',         img: 'img/pictograms/descansar.png' },
+      { label: 'No puedo dormir',   img: 'img/pictograms/dormir.png' },
+      { label: 'Compañía', img: 'img/pictograms/compania.png' },
+      { label: 'No quiero visitas', img: 'img/pictograms/no_visitas.png' },
+    ]
+  },
+  {
+    id: 'letras_numeros',
+    label: 'Letras y números',
+    img: 'img/pictograms/group_letras.png',
+    color: '#FF8F00',
+    subgroups: [
+      {
+        id: 'letras_ai',
+        label: 'A B C D E F G H I',
+        letter: 'A B C\nD E F\nG H I',
+        color: '#FF8F00',
+        items: ['A','B','C','D','E','F','G','H','I'].map(c => ({ label: c, letter: c }))
+      },
+      {
+        id: 'letras_jq',
+        label: 'J K L M N Ñ O P Q',
+        letter: 'J K L\nM N Ñ\nO P Q',
+        color: '#FF8F00',
+        items: ['J','K','L','M','N','Ñ','O','P','Q'].map(c => ({ label: c, letter: c }))
+      },
+      {
+        id: 'letras_rz',
+        label: 'R S T U V W X Y Z',
+        letter: 'R S T\nU V W\nX Y Z',
+        color: '#FF8F00',
+        items: ['R','S','T','U','V','W','X','Y','Z'].map(c => ({ label: c, letter: c }))
+      },
+      {
+        id: 'numeros',
+        label: '1 2 3 4 5 6 7 8 9 0',
+        letter: '1 2 3\n4 5 6\n7 8 9\n0',
+        color: '#FF8F00',
+        items: ['1','2','3','4','5','6','7','8','9','0'].map(c => ({ label: c, letter: c }))
+      },
+    ]
+  },
+  {
+    id: 'juegos',
+    label: 'Juegos',
+    emoji: '🎮',
+    color: '#7B1FA2',
+    items: [
+      { label: 'Vuela', emoji: '🐦', url: 'vuela.html' },
+      { label: 'Salta', emoji: '🟦', url: 'salta.html' },
+      { label: 'Ladrillos', emoji: '🧱', url: 'ladrillos.html' }
+    ]
+  },
+  {
+    id: 'curiosidades',
+    label: 'Curiosidades',
+    emoji: '💡',
+    color: '#0288D1',
+    url: 'curiosidades.html'
+  },
+];
+
+/* ── DOM refs ── */
+const $grid     = document.getElementById('grid-container');
+const $header   = document.getElementById('group-header');
+const $title    = document.getElementById('group-title');
+const $overlay  = document.getElementById('selected-overlay');
+const $selImg   = document.getElementById('selected-img');
+const $selText  = document.getElementById('selected-text');
+
+let overlayTimer = null;
+let backFn = null;
+let painPrefix = null;
+let writerText = '';
+
+function updateWriter() {
+  const el = document.getElementById('writer-text');
+  el.textContent = writerText;
+  el.scrollLeft = el.scrollWidth;
+}
+
+function clearWriter() {
+  writerText = '';
+  updateWriter();
+}
+
+/* ── Navigation ── */
+function goBack() {
+  dismissOverlay();
+  if (backFn) backFn();
+  else showGroups();
+}
+
+/* ── Render helpers ── */
+function createCard(imgSrc, text, extraClass, dataGroup, letter) {
+  const div = document.createElement('div');
+  div.className = 'card' + (extraClass ? ' ' + extraClass : '');
+  if (dataGroup) div.setAttribute('data-group', dataGroup);
+
+  if (letter && !imgSrc) {
+    div.classList.add('card--letter');
+    const letterDiv = document.createElement('div');
+    letterDiv.className = 'letter-big';
+    letterDiv.textContent = letter;
+    div.appendChild(letterDiv);
+    if (text && text !== letter && !extraClass.includes('card--group')) {
+      const span = document.createElement('span');
+      span.textContent = text;
+      div.appendChild(span);
+    }
+  } else {
+    const img = document.createElement('img');
+    img.src = imgSrc;
+    img.alt = text;
+    img.loading = 'eager';
+    img.onerror = function () { this.classList.add('img-error'); };
+    const span = document.createElement('span');
+    span.textContent = text;
+    div.appendChild(img);
+    div.appendChild(span);
+  }
+  return div;
+}
+
+function createEmojiCard(emoji, text, extraClass, dataGroup) {
+  const div = document.createElement('div');
+  div.className = 'card card--letter' + (extraClass ? ' ' + extraClass : '');
+  if (dataGroup) div.setAttribute('data-group', dataGroup);
+  const ed = document.createElement('div');
+  ed.className = 'letter-big';
+  ed.textContent = emoji;
+  div.appendChild(ed);
+  const span = document.createElement('span');
+  span.textContent = text;
+  div.appendChild(span);
+  return div;
+}
+
+/* ── Views ── */
+function showGroups() {
+  dismissOverlay();
+  backFn = openSetup;
+  $header.classList.remove('hidden');
+  $title.textContent = 'PapaTalk';
+  $title.style.color = '#2E7D32';
+  document.getElementById('writer-bar').classList.add('hidden');
+  $grid.innerHTML = '';
+
+  const grid = document.createElement('div');
+  grid.className = 'grid grid--groups';
+
+  DATA.forEach(group => {
+    const card = group.emoji
+      ? createEmojiCard(group.emoji, group.label, 'card--group', group.id)
+      : createCard(group.img, group.label, 'card--group', group.id);
+    card.addEventListener('click', () => {
+      if (group.url) {
+        if (!scanActivating) speak(group.label);
+        window.location.href = group.url;
+        return;
+      }
+      showItems(group);
+      if (!scanActivating) speak(group.label);
+    });
+    grid.appendChild(card);
+  });
+
+  $grid.appendChild(grid);
+  resetScan();
+}
+
+function showItems(group) {
+  if (group.subgroups) {
+    showSubgroups(group);
+    return;
+  }
+  dismissOverlay();
+  backFn = showGroups;
+  $header.classList.remove('hidden');
+  document.getElementById('writer-bar').classList.add('hidden');
+  $title.textContent = group.label;
+  $title.style.color = group.color;
+  $grid.innerHTML = '';
+
+  const grid = document.createElement('div');
+  grid.className = 'grid grid--items';
+  grid.setAttribute('data-color', group.id);
+
+  group.items.forEach(item => {
+    const card = item.emoji
+      ? createEmojiCard(item.emoji, item.label)
+      : createCard(item.img, item.label, item.css || '', null, item.letter);
+    card.addEventListener('click', () => {
+      if (item.url) {
+        if (!scanActivating) speak(item.label);
+        window.location.href = item.url;
+        return;
+      }
+      if (item.nav) {
+        painPrefix = item.prefix || null;
+        const target = DATA.find(g => g.id === item.nav);
+        if (target) {
+          const src = group;
+          showItems(target);
+          backFn = () => { painPrefix = null; showItems(src); };
+        }
+        if (!scanActivating) speak(item.label);
+      } else {
+        selectItem(item, group, card);
+      }
+    });
+    grid.appendChild(card);
+  });
+
+  $grid.appendChild(grid);
+  resetScan();
+}
+
+function showSubgroups(group) {
+  dismissOverlay();
+  backFn = showGroups;
+  $header.classList.remove('hidden');
+  document.getElementById('writer-bar').classList.remove('hidden');
+  updateWriter();
+  $title.textContent = group.label;
+  $title.style.color = group.color;
+  $grid.innerHTML = '';
+
+  const grid = document.createElement('div');
+  grid.className = 'grid grid--subgroups';
+
+  group.subgroups.forEach(sub => {
+    const card = createCard(sub.img, sub.label, 'card--group', group.id, sub.letter);
+    card.addEventListener('click', () => { showSubItems(group, sub); if (!scanActivating) speak(sub.label); });
+    grid.appendChild(card);
+  });
+
+  $grid.appendChild(grid);
+  resetScan();
+}
+
+function showSubItems(group, subgroup) {
+  dismissOverlay();
+  backFn = () => showSubgroups(group);
+  $header.classList.remove('hidden');
+  document.getElementById('writer-bar').classList.remove('hidden');
+  updateWriter();
+  $title.textContent = subgroup.label;
+  $title.style.color = group.color;
+  $grid.innerHTML = '';
+
+  const hasLetters = subgroup.items.some(i => i.letter);
+  const grid = document.createElement('div');
+  grid.className = 'grid ' + (hasLetters ? 'grid--letters' : 'grid--items');
+  grid.setAttribute('data-color', group.id);
+
+  subgroup.items.forEach(item => {
+    const card = createCard(item.img, item.label, item.css || '', null, item.letter);
+    card.addEventListener('click', () => selectItem(item, group, card));
+    grid.appendChild(card);
+  });
+
+  $grid.appendChild(grid);
+  resetScan();
+}
+
+/* ── Item selection & TTS ── */
+function selectItem(item, group, cardEl) {
+  clearTimeout(overlayTimer);
+
+  const spokenLabel = painPrefix && item.spoken
+    ? painPrefix + ' ' + item.spoken
+    : item.label;
+
+  if (item.letter) {
+    writerText += item.letter;
+    updateWriter();
+    if (cardEl) {
+      cardEl.style.background = '#FFD600';
+      cardEl.style.transition = 'background .1s';
+      setTimeout(() => { cardEl.style.background = ''; }, 350);
+    }
+    if (!scanActivating) speak(item.label.toLowerCase());
+    return;
+  }
+
+  $selImg.style.display = '';
+  $selImg.src = item.img;
+  $selText.classList.remove('letter-overlay');
+  $selText.textContent = spokenLabel;
+  $overlay.style.background = group.color;
+  $overlay.classList.remove('hidden');
+
+  if (scanActivating) {
+    overlayTimer = setTimeout(dismissOverlay, 3000);
+  } else {
+    speak(spokenLabel, () => {
+      overlayTimer = setTimeout(dismissOverlay, 2000);
+    });
+  }
+}
+
+function dismissOverlay() {
+  clearTimeout(overlayTimer);
+  $overlay.classList.add('hidden');
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+}
+
+let cachedVoices = [];
+
+function getSelectedVoice() {
+  if (!cachedVoices.length) cachedVoices = speechSynthesis.getVoices();
+  if (config.voiceURI) {
+    const match = cachedVoices.find(v => v.voiceURI === config.voiceURI);
+    if (match) return match;
+  }
+  return cachedVoices.find(v => v.lang.startsWith('es')) || null;
+}
+
+function speak(text, onEnd) {
+  if (!('speechSynthesis' in window)) { if (onEnd) onEnd(); return; }
+  speechSynthesis.cancel();
+
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'es-ES';
+  utt.rate = 0.85;
+  utt.pitch = 1;
+
+  const voice = getSelectedVoice();
+  if (voice) utt.voice = voice;
+
+  if (onEnd) utt.onend = onEnd;
+  speechSynthesis.speak(utt);
+}
+
+function populateVoiceSelect() {
+  if (!('speechSynthesis' in window)) return;
+  cachedVoices = speechSynthesis.getVoices();
+  const select = document.getElementById('voice-select');
+  if (!select || !cachedVoices.length) return;
+
+  const esVoices = cachedVoices.filter(v => v.lang.startsWith('es'));
+  const otherVoices = cachedVoices.filter(v => !v.lang.startsWith('es'));
+
+  select.innerHTML = '';
+
+  if (esVoices.length) {
+    const grp = document.createElement('optgroup');
+    grp.label = 'Español';
+    esVoices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.voiceURI;
+      opt.textContent = v.name + (v.localService ? '' : ' ☁');
+      grp.appendChild(opt);
+    });
+    select.appendChild(grp);
+  }
+
+  if (otherVoices.length) {
+    const grp = document.createElement('optgroup');
+    grp.label = 'Otros idiomas';
+    otherVoices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.voiceURI;
+      opt.textContent = v.name + ' (' + v.lang + ')' + (v.localService ? '' : ' ☁');
+      grp.appendChild(opt);
+    });
+    select.appendChild(grp);
+  }
+
+  if (config.voiceURI) {
+    select.value = config.voiceURI;
+  } else if (esVoices.length) {
+    select.value = esVoices[0].voiceURI;
+  }
+}
+
+document.getElementById('voice-select').addEventListener('change', function() {
+  config.voiceURI = this.value;
+  saveConfig();
+});
+
+function testVoice() {
+  speak('Hola, soy la voz seleccionada para PapaTalk');
+}
+window.testVoice = testVoice;
+
+if ('speechSynthesis' in window) {
+  speechSynthesis.getVoices();
+  speechSynthesis.addEventListener('voiceschanged', populateVoiceSelect);
+  populateVoiceSelect();
+  window.addEventListener('click', function unlock() {
+    const u = new SpeechSynthesisUtterance('');
+    u.volume = 0;
+    speechSynthesis.speak(u);
+    window.removeEventListener('click', unlock);
+  }, { once: true });
+}
+
+/* ── Scanning ── */
+let scanIndex = -1;
+let scanElements = [];
+let scanKeyDown = false;
+let scanTimer = null;
+let scanKeyActivated = false;
+let scanDebounce = false;
+let scanActivating = false;
+let backKeyDown = false;
+let backTimer = null;
+let backKeyActivated = false;
+let urgencyHoldTimer = null;
+
+function getScanLabel(el) {
+  if (el.id === 'btn-back') return 'Volver';
+  if (el.id === 'writer-clear') return 'Borrar';
+  const letterEl = el.querySelector('.letter-big');
+  if (letterEl) return letterEl.textContent.toLowerCase();
+  const span = el.querySelector('span');
+  return span ? span.textContent : '';
+}
+
+function resetScan() {
+  scanIndex = -1;
+  clearScanHighlight();
+  scanElements = [];
+  $grid.querySelectorAll('.card').forEach(c => scanElements.push(c));
+  const $writerBar = document.getElementById('writer-bar');
+  if (!$writerBar.classList.contains('hidden')) {
+    scanElements.push(document.getElementById('writer-clear'));
+  }
+  scanElements.push(document.getElementById('btn-back'));
+}
+
+function clearScanHighlight() {
+  document.querySelectorAll('.scan-highlight').forEach(el =>
+    el.classList.remove('scan-highlight'));
+}
+
+function advanceScan() {
+  clearScanHighlight();
+  if (scanElements.length === 0) return;
+  scanIndex = (scanIndex + 1) % scanElements.length;
+  const el = scanElements[scanIndex];
+  el.classList.add('scan-highlight');
+  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  speak(getScanLabel(el));
+}
+
+function retreatScan() {
+  clearScanHighlight();
+  if (scanElements.length === 0) return;
+  if (scanIndex <= 0) {
+    scanIndex = scanElements.length - 1;
+  } else {
+    scanIndex--;
+  }
+  const el = scanElements[scanIndex];
+  el.classList.add('scan-highlight');
+  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  speak(getScanLabel(el));
+}
+
+function activateScan() {
+  if (scanIndex < 0 || scanIndex >= scanElements.length) return;
+  const el = scanElements[scanIndex];
+  const label = getScanLabel(el);
+  const isLetterCard = el.querySelector('.letter-big');
+  scanActivating = true;
+  speak(isLetterCard ? 'Selección' : 'Selección: ' + label, () => {
+    el.click();
+    scanActivating = false;
+  });
+}
+
+/* ── Keyboard handler ── */
+function isOnBoard() {
+  return !document.getElementById('app').classList.contains('hidden');
+}
+
+document.addEventListener('keydown', e => {
+  /* Setup: captura de tecla */
+  if (capturing) {
+    handleSetupKey(e);
+    return;
+  }
+
+  /* Ignorar repeticiones del SO al mantener tecla */
+  if (e.repeat) return;
+
+  /* Urgency: mantener cualquier botón 3s (funciona en todas las pantallas) */
+  if ((e.code === config.scanCode || e.code === config.backCode) && !urgencyActive) {
+    clearTimeout(urgencyHoldTimer);
+    urgencyHoldTimer = setTimeout(() => { showUrgency(); }, 3000);
+  }
+
+  /* Test mode */
+  if (testMode) {
+    if (e.code === config.scanCode) {
+      e.preventDefault();
+      if (!testScanDown) {
+        testScanDown = true;
+        document.getElementById('test-scan').classList.add('pressed');
+        playTone(523, 0.15);
+        testScanTimer = setTimeout(() => {
+          playTone(587, 0.15);
+          document.getElementById('test-scan').classList.add('long');
+        }, config.longPress);
+      }
+    }
+    if (e.code === config.backCode) {
+      e.preventDefault();
+      if (!testBackDown) {
+        testBackDown = true;
+        document.getElementById('test-back').classList.add('pressed');
+        playTone(330, 0.15);
+        testBackTimer = setTimeout(() => {
+          playTone(415, 0.15);
+          document.getElementById('test-back').classList.add('long');
+        }, config.longPress);
+      }
+    }
+    return;
+  }
+
+  /* Urgency active: any key dismisses */
+  if (urgencyActive) {
+    e.preventDefault();
+    dismissUrgency();
+    return;
+  }
+
+  /* En setup: tecla de avanzar = comenzar */
+  if (!isOnBoard()) {
+    if (e.code === config.scanCode && !scanKeyDown) {
+      e.preventDefault();
+      scanKeyDown = true;
+      startApp();
+    }
+    return;
+  }
+
+  const isScanKey = e.code === config.scanCode;
+  const isBackKey = e.code === config.backCode;
+
+  if (isScanKey) {
+    e.preventDefault();
+    if (scanKeyDown || scanDebounce) return;
+    scanKeyDown = true;
+    scanKeyActivated = false;
+    playTone(523, 0.15);
+    scanTimer = setTimeout(() => {
+      scanKeyActivated = true;
+      playTone(587, 0.15);
+      activateScan();
+    }, config.longPress);
+  }
+  if (isBackKey) {
+    e.preventDefault();
+    if (backKeyDown) return;
+    backKeyDown = true;
+    backKeyActivated = false;
+    playTone(330, 0.15);
+    const isLettersScreen = !document.getElementById('writer-bar').classList.contains('hidden');
+    backTimer = setTimeout(() => {
+      backKeyActivated = true;
+      if (isLettersScreen && writerText.length > 0) {
+        playTone(415, 0.15);
+        writerText = writerText.slice(0, -1);
+        updateWriter();
+        speak('Borrar');
+      }
+    }, config.longPress);
+  }
+
+});
+
+document.addEventListener('keyup', e => {
+  if (e.code === config.scanCode || e.code === config.backCode) {
+    clearTimeout(urgencyHoldTimer);
+  }
+
+  /* Test mode */
+  if (testMode) {
+    if (e.code === config.scanCode && testScanDown) {
+      e.preventDefault();
+      testScanDown = false;
+      clearTimeout(testScanTimer);
+      document.getElementById('test-scan').classList.remove('pressed', 'long');
+      playTone(392, 0.2);
+    }
+    if (e.code === config.backCode && testBackDown) {
+      e.preventDefault();
+      testBackDown = false;
+      clearTimeout(testBackTimer);
+      document.getElementById('test-back').classList.remove('pressed', 'long');
+      playTone(262, 0.2);
+    }
+    return;
+  }
+
+  const isScanKey = e.code === config.scanCode;
+  if (isScanKey && scanKeyDown) {
+    e.preventDefault();
+    clearTimeout(scanTimer);
+    if (isOnBoard()) {
+      playTone(392, 0.15);
+      if (!scanKeyActivated) {
+        advanceScan();
+        checkUrgency();
+      }
+    }
+    scanKeyDown = false;
+    scanDebounce = true;
+    setTimeout(() => { scanDebounce = false; }, 80);
+  }
+
+  const isBackKey = e.code === config.backCode;
+  if (isBackKey && backKeyDown) {
+    e.preventDefault();
+    clearTimeout(backTimer);
+    if (isOnBoard()) {
+      playTone(262, 0.15);
+      if (!backKeyActivated) {
+        retreatScan();
+        checkUrgency();
+      }
+    }
+    backKeyDown = false;
+  }
+});
+
+/* ── Urgency detector (5 rapid taps) ── */
+let urgencyTaps = [];
+let urgencyActive = false;
+let urgencyOscs = [];
+
+function checkUrgency() {
+  const now = Date.now();
+  urgencyTaps.push(now);
+  const window = config.urgencyWindow || 3000;
+  while (urgencyTaps.length > 0 && now - urgencyTaps[0] > window) urgencyTaps.shift();
+  if (urgencyTaps.length >= 5) {
+    urgencyTaps = [];
+    showUrgency();
+  }
+}
+
+function showUrgency() {
+  urgencyActive = true;
+  clearScanHighlight();
+  document.getElementById('urgency-overlay').classList.remove('hidden');
+  startAlarm();
+}
+
+function dismissUrgency() {
+  urgencyActive = false;
+  document.getElementById('urgency-overlay').classList.add('hidden');
+  stopAlarm();
+}
+window.dismissUrgency = dismissUrgency;
+
+function startAlarm() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  stopAlarm();
+  const freqs = [880, 660];
+  freqs.forEach((f, i) => {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'square';
+    o.frequency.value = f;
+    const lfo = audioCtx.createOscillator();
+    const lfoGain = audioCtx.createGain();
+    lfo.frequency.value = i === 0 ? 3 : 2.5;
+    lfoGain.gain.value = 0.12;
+    lfo.connect(lfoGain);
+    lfoGain.connect(g.gain);
+    g.gain.value = 0.13;
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    lfo.start();
+    o.start();
+    urgencyOscs.push(o, lfo, g);
+  });
+}
+
+function stopAlarm() {
+  urgencyOscs.forEach(node => {
+    try { if (node.stop) node.stop(); } catch(e){}
+    try { node.disconnect(); } catch(e){}
+  });
+  urgencyOscs = [];
+}
+
+/* ── Service Worker ── */
+/* DEVELOPMENT: keep true to remove old Service Workers and Cache Storage.
+   PRODUCTION: set false to enable offline mode through sw.js. */
+const PAPATALK_DEV_MODE = true;
+
+if ('serviceWorker' in navigator) {
+  if (PAPATALK_DEV_MODE) {
+    navigator.serviceWorker.getRegistrations()
+      .then(registrations => Promise.all(registrations.map(reg => reg.unregister())))
+      .then(() => {
+        if (!window.caches) return;
+        return caches.keys().then(keys => Promise.all(keys.map(key => caches.delete(key))));
+      })
+      .catch(() => {});
+  } else {
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+      .then(reg => { reg.update(); })
+      .catch(() => {});
+  }
+}
+
+/* ── Boot ── */
+loadConfig();
+refreshSetupUI();
+</script>
+</body>
+</html>
