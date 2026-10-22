@@ -1,6 +1,7 @@
 // PapaTalk Service Worker
 // DEVELOPMENT: keep DEV_MODE=true to avoid stale files while building mini apps.
-// PRODUCTION: set DEV_MODE=false and bump CACHE_NAME when releasing.
+// PRODUCTION: the deploy workflow (.github/workflows/deploy.yml) sets DEV_MODE=false
+// and CACHE_NAME='papatalk-<commit>' on every release; keep both lines as they are.
 const DEV_MODE = true;
 const CACHE_NAME = 'papatalk-v12';
 
@@ -15,10 +16,12 @@ const CORE = [
   './ladrillos.html',
   './curiosidades.html',
   './data/facts/facts.json',
+  './fonts/atkinson-hyperlegible-400.woff2',
+  './fonts/atkinson-hyperlegible-700.woff2',
 ];
 
 const PICTOS = [
-  'group_general','group_donde_duele','group_que_quiero','group_letras',
+  'group_general','group_donde_duele','group_que_quiero','group_letras','group_juegos','group_curiosidades',
   'dolor','pica','beber','si','no_item','no_se','calor','frio','hora',
   'cabeza','cuello','espalda','brazos','barriga','culo','piernas','sonda','via',
   'pis','movil','enfermedad','musica','pelicula','descansar','dormir','compania','no_visitas',
@@ -51,7 +54,9 @@ if (DEV_MODE) {
   self.addEventListener('install', event => {
     self.skipWaiting();
     event.waitUntil(
-      caches.open(CACHE_NAME).then(cache => cache.addAll(ALL_ASSETS))
+      // cache: 'reload' skips the browser's HTTP cache so a release never stores stale files
+      caches.open(CACHE_NAME).then(cache =>
+        cache.addAll(ALL_ASSETS.map(url => new Request(url, { cache: 'reload' }))))
     );
   });
 

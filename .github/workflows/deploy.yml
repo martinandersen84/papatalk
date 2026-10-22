@@ -1,0 +1,55 @@
+# Deploys PapaTalk to Hostarmada over FTPS on every push to master.
+# Needs repository secrets FTP_SERVER, FTP_USERNAME, FTP_PASSWORD and the
+# repository variable FTP_SERVER_DIR (remote folder ending in "/", e.g. public_html/papatalk/).
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_FTP: ${{ secrets.FTP_SERVER != '' && secrets.FTP_USERNAME != '' && secrets.FTP_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Switch to production mode
+        run: |
+          sed -i 's/^const DEV_MODE = true;/const DEV_MODE = false;/' sw.js
+          sed -i "s/^const CACHE_NAME = '.*';/const CACHE_NAME = 'papatalk-${GITHUB_SHA::8}';/" sw.js
+          sed -i 's/^const PAPATALK_DEV_MODE = true;/const PAPATALK_DEV_MODE = false;/' index.html
+          cp deploy/htaccess.production .htaccess
+          grep -q '^const DEV_MODE = false;' sw.js
+          grep -q "^const CACHE_NAME = 'papatalk-${GITHUB_SHA::8}';" sw.js
+          grep -q '^const PAPATALK_DEV_MODE = false;' index.html
+
+      - name: Missing FTP secrets
+        if: env.HAS_FTP != 'true'
+        run: echo "::warning::FTP secrets are not set; nothing was uploaded."
+
+      - name: Upload over FTPS
+        if: env.HAS_FTP == 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          server-dir: ${{ vars.FTP_SERVER_DIR || './' }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            .claude/**
+            deploy/**
+            scripts/**
+            data/facts/batches/**
+            **/*.md
+            *.pdf
