@@ -486,17 +486,18 @@ function playTone(freq, duration) {
 - Array `PICTOS` con todos los pictogramas
 - **Al crear una nueva mini-app**: añadirla a `CORE` en `sw.js`
 - **Al añadir un pictograma o una fuente**: añadirlo a `PICTOS` o `CORE`
-- En el repo `sw.js`, `PAPATALK_DEV_MODE` (index.html) y `.htaccess` se quedan **siempre en modo desarrollo**; el despliegue los pasa a producción (ver §9b).
+- En el repo `sw.js` y `PAPATALK_DEV_MODE` (index.html) se quedan **siempre en modo desarrollo**; el despliegue los pasa a producción (ver §9b).
 
 ### 9b. Despliegue
 
-`.github/workflows/deploy.yml` publica en Hostarmada por FTPS en cada push a `master` (o a mano desde Actions → Deploy → Run workflow):
+`.github/workflows/deploy.yml` publica en GitHub Pages (https://martinandersen84.github.io/papatalk/) en cada push a `master` (o a mano desde Actions → Deploy → Run workflow):
 
 1. Pone `DEV_MODE = false` y `CACHE_NAME = 'papatalk-<8 primeros caracteres del commit>'` en `sw.js`, y `PAPATALK_DEV_MODE = false` en `index.html`.
-2. Sube `deploy/htaccess.production` como `.htaccess` (HTML/JS/JSON sin caché, imágenes y fuentes 7 días).
-3. Sube solo los ficheros cambiados con `SamKirkland/FTP-Deploy-Action`; no sube `.github/`, `.claude/`, `deploy/`, `scripts/`, los `.md` ni el PDF.
+2. Copia a `_site/` los ficheros de la web, sin `.github/`, `.claude/`, `scripts/`, `data/facts/batches/` ni los `.md`.
+3. Lo sube con `actions/upload-pages-artifact` y `actions/deploy-pages`.
 
-Secretos del repositorio: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`. Variable del repositorio: `FTP_SERVER_DIR` (carpeta remota terminada en `/`). Sin secretos, el workflow avisa y no sube nada.
+- La web vive en la subcarpeta `/papatalk/`: todas las rutas (HTML, `sw.js`, `manifest.json`, imágenes) deben ser **relativas**, nunca empezar por `/`.
+- Pages no lee `.htaccess` ni permite cabeceras propias (sirve todo con caché de 10 min); la actualización la garantizan el `CACHE_NAME` por commit y `updateViaCache: 'none'` al registrar el service worker.
 
 ### Recursos (pictogramas)
 

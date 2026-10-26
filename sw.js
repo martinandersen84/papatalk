@@ -1,6 +1,6 @@
 // PapaTalk Service Worker
 // DEVELOPMENT: keep DEV_MODE=true to avoid stale files while building mini apps.
-// PRODUCTION: the deploy workflow (.github/workflows/deploy.yml) sets DEV_MODE=false
+// PRODUCTION: the GitHub Pages deploy workflow (.github/workflows/deploy.yml) sets DEV_MODE=false
 // and CACHE_NAME='papatalk-<commit>' on every release; keep both lines as they are.
 const DEV_MODE = true;
 const CACHE_NAME = 'papatalk-v12';

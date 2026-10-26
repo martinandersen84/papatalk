@@ -89,22 +89,13 @@ Durante el desarrollo, el service worker está en modo `DEV_MODE = true` (sin ca
 
 ## Despliegue
 
-La app se sirve en Hostarmada (Apache). Cada push a `master` la publica sola con GitHub Actions (`.github/workflows/deploy.yml`):
+La app se publica en GitHub Pages: **https://martinandersen84.github.io/papatalk/**. Cada push a `master` la publica sola con GitHub Actions (`.github/workflows/deploy.yml`):
 
 1. Pasa `sw.js` e `index.html` a modo producción y pone `CACHE_NAME = 'papatalk-<commit>'`, para que los dispositivos instalados reciban la versión nueva.
-2. Sube `deploy/htaccess.production` como `.htaccess`.
-3. Sube por FTPS solo los ficheros que han cambiado.
+2. Copia a `_site/` solo los ficheros de la web (sin `.github/`, `.claude/`, `scripts/`, `data/facts/batches/` ni los `.md`).
+3. Lo publica en Pages.
 
-Configuración (una vez), en GitHub → Settings → Secrets and variables → Actions:
-
-- Secretos: `FTP_SERVER` (p. ej. `ftp.tudominio.es`), `FTP_USERNAME`, `FTP_PASSWORD`.
-- Variable: `FTP_SERVER_DIR`, la carpeta remota terminada en `/` (p. ej. `public_html/papatalk/`).
-
-Sin esos secretos, el workflow termina con un aviso y no sube nada. También se puede lanzar a mano desde Actions → Deploy → Run workflow.
-
-## Estado del proyecto
-
-Este repositorio se ha subido como **privado** antes de acometer una reestructuración, para poder deshacer cambios con seguridad si algo sale mal.
+No necesita secretos. También se puede lanzar a mano desde Actions → Deploy → Run workflow.
 
 ## Créditos
 

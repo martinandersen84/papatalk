@@ -1,6 +1,5 @@
-# Deploys PapaTalk to Hostarmada over FTPS on every push to master.
-# Needs repository secrets FTP_SERVER, FTP_USERNAME, FTP_PASSWORD and the
-# repository variable FTP_SERVER_DIR (remote folder ending in "/", e.g. public_html/papatalk/).
+# Publishes PapaTalk on GitHub Pages on every push to master (or manually).
+# The repository stays in development mode; this job switches the published copy to production.
 name: Deploy
 
 on:
@@ -8,15 +7,21 @@ on:
     branches: [master]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 concurrency:
-  group: deploy
+  group: pages
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      HAS_FTP: ${{ secrets.FTP_SERVER != '' && secrets.FTP_USERNAME != '' && secrets.FTP_PASSWORD != '' }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -25,31 +30,24 @@ jobs:
           sed -i 's/^const DEV_MODE = true;/const DEV_MODE = false;/' sw.js
           sed -i "s/^const CACHE_NAME = '.*';/const CACHE_NAME = 'papatalk-${GITHUB_SHA::8}';/" sw.js
           sed -i 's/^const PAPATALK_DEV_MODE = true;/const PAPATALK_DEV_MODE = false;/' index.html
-          cp deploy/htaccess.production .htaccess
           grep -q '^const DEV_MODE = false;' sw.js
           grep -q "^const CACHE_NAME = 'papatalk-${GITHUB_SHA::8}';" sw.js
           grep -q '^const PAPATALK_DEV_MODE = false;' index.html
 
-      - name: Missing FTP secrets
-        if: env.HAS_FTP != 'true'
-        run: echo "::warning::FTP secrets are not set; nothing was uploaded."
+      - name: Collect the site files
+        run: |
+          rsync -a \
+            --exclude '.git*' --exclude '.github/' --exclude '.claude/' \
+            --exclude 'scripts/' --exclude 'data/facts/batches/' \
+            --exclude '*.md' --exclude '.htaccess' --exclude '_site/' \
+            ./ _site/
+          test -f _site/index.html && test -f _site/sw.js
 
-      - name: Upload over FTPS
-        if: env.HAS_FTP == 'true'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          server-dir: ${{ vars.FTP_SERVER_DIR || './' }}
-          exclude: |
-            **/.git*
-            **/.git*/**
-            .github/**
-            .claude/**
-            deploy/**
-            scripts/**
-            data/facts/batches/**
-            **/*.md
-            *.pdf
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
