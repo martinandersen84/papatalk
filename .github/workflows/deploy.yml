@@ -1,0 +1,53 @@
+# Publishes PapaTalk on GitHub Pages on every push to master (or manually).
+# The repository stays in development mode; this job switches the published copy to production.
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Switch to production mode
+        run: |
+          sed -i 's/^const DEV_MODE = true;/const DEV_MODE = false;/' sw.js
+          sed -i "s/^const CACHE_NAME = '.*';/const CACHE_NAME = 'papatalk-${GITHUB_SHA::8}';/" sw.js
+          sed -i 's/^const PAPATALK_DEV_MODE = true;/const PAPATALK_DEV_MODE = false;/' index.html
+          grep -q '^const DEV_MODE = false;' sw.js
+          grep -q "^const CACHE_NAME = 'papatalk-${GITHUB_SHA::8}';" sw.js
+          grep -q '^const PAPATALK_DEV_MODE = false;' index.html
+
+      - name: Collect the site files
+        run: |
+          rsync -a \
+            --exclude '.git*' --exclude '.github/' --exclude '.claude/' \
+            --exclude 'scripts/' --exclude 'data/facts/batches/' \
+            --exclude '*.md' --exclude '.htaccess' --exclude '_site/' \
+            ./ _site/
+          test -f _site/index.html && test -f _site/sw.js
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

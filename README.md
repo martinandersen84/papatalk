@@ -24,10 +24,10 @@ Cada tarjeta seleccionada se lee en voz alta automáticamente (síntesis de voz 
 
 ### Sistema de urgencia
 
-Desde cualquier pantalla (incluida la configuración), el paciente puede activar una alerta visual y sonora de dos formas:
+El paciente puede activar una alerta visual y sonora de dos formas:
 
-- 5 pulsaciones rápidas en una ventana de tiempo configurable.
-- Mantener pulsado 3 segundos o más.
+- 5 pulsaciones rápidas en una ventana de tiempo configurable (en el tablero).
+- Mantener pulsado 3 segundos o más (en cualquier pantalla, incluida la configuración).
 
 Muestra una pantalla roja con alarma sonora continua hasta que se pulsa cualquier tecla o el botón "Volver".
 
@@ -48,7 +48,8 @@ Todos los juegos comparten la configuración de teclas del pulsador (leída de `
 
 - **Sin build ni dependencias**: HTML + CSS + JS vanilla, cada página es autocontenida.
 - **PWA**: `manifest.json` + `sw.js` (service worker) para instalación y uso offline.
-  - `sw.js` tiene un modo desarrollo (`DEV_MODE = true`, network-only, sin caché) y un modo producción (cache-first). Hay que cambiar `DEV_MODE` y subir la versión de `CACHE_NAME` antes de desplegar.
+  - `sw.js` tiene un modo desarrollo (`DEV_MODE = true`, network-only, sin caché) y un modo producción (cache-first). En el repo se queda siempre en desarrollo; el despliegue automático lo pasa a producción y cambia `CACHE_NAME` (ver «Despliegue»).
+- **Tipografía**: Atkinson Hyperlegible (Braille Institute, licencia SIL OFL, en `fonts/`), pensada para baja visión.
 - **Configuración persistente**: teclas del pulsador, duración de pulsación larga, voz TTS y ventana de urgencia se guardan en `localStorage` (`papatalk-config`).
 - **Pictogramas**: `img/pictograms/`, de [ARASAAC](https://arasaac.org) (autor Sergio Palao, © Gobierno de Aragón), licencia CC BY-NC-SA.
 - **Guía de estilos**: [`STYLEGUIDE.md`](STYLEGUIDE.md) — paleta de colores, tipografía, componentes, patrones de interacción del pulsador y checklist para crear nuevas mini-apps. Se mantiene actualizada a medida que evoluciona el proyecto.
@@ -86,11 +87,18 @@ python -m http.server 8080
 
 Durante el desarrollo, el service worker está en modo `DEV_MODE = true` (sin caché) para evitar servir versiones antiguas de los archivos mientras se itera.
 
-## Estado del proyecto
+## Despliegue
 
-Este repositorio se ha subido como **privado** antes de acometer una reestructuración, para poder deshacer cambios con seguridad si algo sale mal.
+La app se publica en GitHub Pages: **https://martinandersen84.github.io/papatalk/**. Cada push a `master` la publica sola con GitHub Actions (`.github/workflows/deploy.yml`):
+
+1. Pasa `sw.js` e `index.html` a modo producción y pone `CACHE_NAME = 'papatalk-<commit>'`, para que los dispositivos instalados reciban la versión nueva.
+2. Copia a `_site/` solo los ficheros de la web (sin `.github/`, `.claude/`, `scripts/`, `data/facts/batches/` ni los `.md`).
+3. Lo publica en Pages.
+
+No necesita secretos. También se puede lanzar a mano desde Actions → Deploy → Run workflow.
 
 ## Créditos
 
 - Pictogramas: Sergio Palao. Origen: [ARASAAC](https://arasaac.org). Licencia: CC (BY-NC-SA). Propiedad: Gobierno de Aragón.
+- Tipografía: Atkinson Hyperlegible, © Braille Institute of America, licencia SIL Open Font License 1.1 (`fonts/OFL.txt`).
 - Basado en sistemas CAA (Comunicación Aumentativa y Alternativa) con barrido por pulsador.

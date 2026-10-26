@@ -15,10 +15,27 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    @font-face {
+      font-family: "Atkinson Hyperlegible";
+      font-weight: 400;
+      font-display: swap;
+      src: url("fonts/atkinson-hyperlegible-400.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "Atkinson Hyperlegible";
+      font-weight: 700;
+      font-display: swap;
+      src: url("fonts/atkinson-hyperlegible-700.woff2") format("woff2");
+    }
+
     :root {
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
       --header-h: 56px;
+      --font: "Atkinson Hyperlegible", -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --ink: #1d2420;
+      --page: #f2f4f1;
+      --card-shadow: 0 1px 2px rgba(20, 30, 25, .06), 0 6px 18px rgba(20, 30, 25, .07);
       --green: #43A047;
       --red: #E53935;
       --blue: #1E88E5;
@@ -28,8 +45,8 @@
     html, body {
       height: 100%;
       overflow: hidden;
-      font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
-      background: #f5f5f5;
+      font-family: var(--font);
+      background: var(--page);
       -webkit-text-size-adjust: 100%;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
@@ -67,14 +84,20 @@
       text-align: center;
     }
 
+    /* Cabecera (marca + Comenzar) y secciones: 1 columna en móvil, 2 en tablet, 3 en ordenador */
+    .setup-top, .setup-cols { width: 100%; max-width: 500px; }
+    .setup-top { display: flex; flex-direction: column; align-items: center; }
+    .setup-brand { text-align: center; }
+    .setup-go { width: 100%; }
+
     .setup-section {
       width: 100%;
-      max-width: 500px;
       background: #fff;
-      border-radius: 16px;
+      border-radius: 20px;
       padding: 20px;
       margin-bottom: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+      box-shadow: var(--card-shadow);
+      break-inside: avoid;
     }
     .setup-section h2 {
       font-size: 16px;
@@ -95,27 +118,42 @@
 
     .key-row {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
+      gap: 8px 12px;
       padding: 10px 0;
       border-bottom: 1px solid #f0f0f0;
     }
-    .key-row:last-child { border-bottom: none; }
+    .key-info {
+      flex: 1 1 150px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
     .key-label {
       font-size: 15px;
-      font-weight: 600;
+      font-weight: 700;
       color: #444;
     }
+    .key-hint {
+      font-size: 13px;
+      color: #777;
+      line-height: 1.35;
+    }
     .key-btn {
+      flex-shrink: 0;
       padding: 8px 16px;
+      font: inherit;
       font-size: 14px;
       font-weight: 700;
+      white-space: nowrap;
       border: 2px solid #ddd;
-      border-radius: 10px;
+      border-radius: 999px;
       background: #fafafa;
       color: #333;
       cursor: pointer;
-      min-width: 140px;
       text-align: center;
       transition: border-color .2s, background .2s;
     }
@@ -147,6 +185,7 @@
     }
     .voice-select-wrap select {
       flex: 1;
+      min-width: 0;
       padding: 8px 10px;
       font-size: 14px;
       border: 2px solid #ddd;
@@ -229,25 +268,15 @@
     .setup-section ul li strong { color: #333; }
     .mode-icon { flex-shrink: 0; font-size: 18px; width: 24px; text-align: center; }
 
-    .key-desc {
-      padding: 10px 0;
-      border-bottom: 1px solid #f0f0f0;
-      font-size: 14px;
-      color: #555;
-      line-height: 1.5;
-    }
-    .key-desc:last-child { border-bottom: none; }
-    .key-desc strong { color: #333; display: block; margin-bottom: 2px; }
-
     .btn-start {
       display: block;
       width: 100%;
-      max-width: 500px;
       padding: 18px;
+      font: inherit;
       font-size: 22px;
-      font-weight: 800;
+      font-weight: 700;
       border: none;
-      border-radius: 16px;
+      border-radius: 999px;
       background: #2E7D32;
       color: #fff;
       cursor: pointer;
@@ -347,22 +376,21 @@
     .btn-test {
       display: block;
       width: 100%;
-      max-width: 500px;
       padding: 14px;
+      font: inherit;
       font-size: 17px;
       font-weight: 700;
       border: 2px solid #ddd;
-      border-radius: 14px;
+      border-radius: 999px;
       background: #fff;
       color: #555;
       cursor: pointer;
-      margin-bottom: 12px;
+      margin-top: 16px;
       transition: background .15s;
     }
     .btn-test:active { background: #f0f0f0; }
 
     .setup-hint {
-      max-width: 500px;
       font-size: 13px;
       color: #999;
       text-align: center;
@@ -377,6 +405,26 @@
       line-height: 1.6;
     }
     .setup-attribution a { color: #888; }
+
+    @media (min-width: 700px) {
+      .setup-top, .setup-cols, .setup-attribution { max-width: 1040px; }
+      .setup-top {
+        flex-direction: row;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 20px;
+      }
+      .setup-brand, .setup-subtitle { text-align: left; }
+      .setup-subtitle { margin-bottom: 0; }
+      .setup-go { width: 340px; flex-shrink: 0; }
+      .setup-go .btn-start { margin-bottom: 6px; }
+      .setup-go .setup-hint { margin-bottom: 0; }
+      .setup-cols { column-count: 2; column-gap: 20px; }
+    }
+    @media (min-width: 1100px) {
+      .setup-top, .setup-cols, .setup-attribution { max-width: 1240px; }
+      .setup-cols { column-count: 3; }
+    }
 
     /* ══════════════════════════════════
        Board (app)
@@ -442,25 +490,26 @@
       height: var(--header-h);
       flex-shrink: 0;
       background: #fff;
-      border-bottom: 2px solid #ddd;
+      box-shadow: 0 1px 0 rgba(20, 30, 25, .08), 0 4px 12px rgba(20, 30, 25, .04);
       z-index: 10;
     }
     #group-header.hidden { display: none; }
 
     #btn-back {
       flex-shrink: 0;
-      padding: 10px 22px;
-      font-size: 20px;
+      padding: 10px 20px;
+      font: inherit;
+      font-size: 18px;
       font-weight: 700;
       border: none;
-      border-radius: 14px;
-      background: #455A64;
+      border-radius: 999px;
+      background: #37474F;
       color: #fff;
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
-    #btn-back:active { background: #37474F; transform: scale(.95); }
+    #btn-back:active { background: #263238; transform: scale(.95); }
 
     #group-title {
       font-size: clamp(20px, 3.5vw, 30px);
@@ -516,6 +565,7 @@
     #writer-clear {
       flex-shrink: 0;
       padding: 10px 18px;
+      font: inherit;
       font-size: 16px;
       font-weight: 700;
       border: 3px solid #E53935;
@@ -544,16 +594,20 @@
       height: 100%;
     }
 
+    /* Grupos: los 4 de comunicación grandes y una franja más baja para el ocio */
     .grid--groups {
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: repeat(3, 1fr);
-    }
-    .grid--groups .card:nth-child(5) {
-      grid-column: 1 / -1;
+      grid-template-rows: 1fr 1fr .5fr;
     }
 
     .grid--items {
       grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+    }
+
+    /* Pantallas con 3 tarjetas o menos (Juegos): llenan la pantalla */
+    .grid--few {
+      grid-template-columns: 1fr;
       grid-template-rows: repeat(3, 1fr);
     }
 
@@ -571,17 +625,19 @@
     }
 
     /* ── Card ── */
+    /* Una sola forma de tarjeta: blanca, borde fino del color del grupo (--line)
+       y el nombre en una franja teñida (--tint). */
     .card {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 10px 6px;
+      gap: 8px;
+      padding: 12px 12px 0;
       background: #fff;
-      border-radius: 18px;
-      border: 4px solid #e0e0e0;
-      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      border-radius: 24px;
+      border: 2px solid var(--line, #ddd);
+      box-shadow: var(--card-shadow);
       cursor: pointer;
       transition: transform .12s ease, border-color .12s ease;
       -webkit-tap-highlight-color: transparent;
@@ -603,34 +659,45 @@
     }
 
     .card span {
+      align-self: stretch;
+      margin: 0 -12px;
+      padding: 9px 8px 10px;
+      background: var(--tint, #eee);
       font-size: clamp(13px, 2.2vw, 20px);
       font-weight: 700;
       text-align: center;
-      color: #222;
+      color: var(--ink);
       line-height: 1.15;
       flex-shrink: 0;
     }
 
-    .card--group img { max-width: 180px; }
-    .card--group span { font-size: clamp(18px, 3vw, 28px); }
+    .card--group img { max-width: min(100%, 240px); }
+    .card--group span { font-size: clamp(18px, 3vw, 28px); color: var(--c); }
 
-    .card[data-group="general"]        { border-color: var(--green); }
-    .card[data-group="cuerpo"]         { border-color: var(--red); }
-    .card[data-group="quiero"]         { border-color: var(--blue); }
-    .card[data-group="letras_numeros"] { border-color: var(--orange); }
-    .card[data-group="juegos"]         { border-color: #7B1FA2; }
-    .card[data-group="curiosidades"]   { border-color: #0288D1; }
+    /* Paleta por grupo: --c (texto), --line (borde), --tint (franja del nombre) */
+    .card[data-group="general"],        [data-color="general"] .card        { --c: #2E7D32; --line: #9CCB9E; --tint: #E6F2E6; }
+    .card[data-group="cuerpo"],         [data-color="cuerpo"] .card         { --c: #C62828; --line: #EBA3A0; --tint: #FBE8E7; }
+    .card[data-group="quiero"],         [data-color="quiero"] .card         { --c: #1565C0; --line: #9DBDE6; --tint: #E4EEFA; }
+    .card[data-group="letras_numeros"], [data-color="letras_numeros"] .card { --c: #E65100; --line: #F3B98A; --tint: #FFF0DF; }
+    .card[data-group="juegos"],         [data-color="juegos"] .card         { --c: #6A1B9A; --line: #C7A2DA; --tint: #F2E7F7; }
+    .card[data-group="curiosidades"],   [data-color="curiosidades"] .card   { --c: #00838F; --line: #8FCBD0; --tint: #DFF3F4; }
 
-    .grid--items[data-color="general"] .card        { border-color: var(--green); }
-    .grid--items[data-color="cuerpo"] .card          { border-color: var(--red); }
-    .grid--items[data-color="quiero"] .card           { border-color: var(--blue); }
-    .grid--items[data-color="letras_numeros"] .card   { border-color: var(--orange); }
-    .grid--items[data-color="juegos"] .card           { border-color: #7B1FA2; }
+    .grid .card.card--si { --tint: #CDEBCF; --line: #2E7D32; background: #E6F4E7; }
+    .grid .card.card--no { --tint: #F8D3D1; --line: #C62828; background: #FCEBEA; }
 
-    .card--si { background: #E8F5E9; border-color: #2E7D32 !important; }
-    .card--no { background: #FFEBEE; border-color: #C62828 !important; }
+    .card--letter { padding-bottom: 12px; }
+    .grid--letters .card { background: var(--tint); }
 
-    .card--letter { background: #FFF8E1; }
+    /* Tarjetas en fila (Juegos): el nombre va al lado, sin franja */
+    .grid--few .card { flex-direction: row; gap: 24px; padding-bottom: 12px; }
+    .grid--few .card span {
+      align-self: center;
+      margin: 0;
+      background: none;
+      color: var(--c);
+      font-size: clamp(20px, 5vw, 30px);
+    }
+    .grid--few .card .letter-big { flex: 0 0 auto; font-size: clamp(56px, 14vw, 110px); }
     .letter-big {
       display: flex;
       align-items: center;
@@ -672,13 +739,14 @@
 
     /* ── Scan highlight ── */
     @keyframes scanPulse {
-      0%, 100% { outline-color: #FFD600; box-shadow: 0 0 18px 6px rgba(255, 214, 0, .55); }
-      50%      { outline-color: #FF6F00; box-shadow: 0 0 24px 8px rgba(255, 111, 0, .65); }
+      0%, 100% { outline-color: #FFD600; box-shadow: 0 0 0 4px var(--ink), 0 0 18px 6px rgba(255, 214, 0, .55); }
+      50%      { outline-color: #FF6F00; box-shadow: 0 0 0 4px var(--ink), 0 0 24px 8px rgba(255, 111, 0, .65); }
     }
     .scan-highlight {
       outline: 6px solid #FFD600 !important;
       outline-offset: 4px;
-      box-shadow: 0 0 18px 6px rgba(255, 214, 0, .55) !important;
+      /* Anillo oscuro entre tarjeta y amarillo para que destaque sobre los tintes */
+      box-shadow: 0 0 0 4px var(--ink), 0 0 18px 6px rgba(255, 214, 0, .55) !important;
       animation: scanPulse 1s ease-in-out infinite !important;
       z-index: 20;
       position: relative;
@@ -693,13 +761,33 @@
       min-height: 80px;
     }
 
+    @media (orientation: landscape) {
+      .grid--few { grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr; }
+      .grid--few .card { flex-direction: column; }
+    }
+    /* Pantallas anchas: los 4 grupos de comunicación en fila y el ocio debajo */
+    @media (orientation: landscape) and (min-width: 700px) {
+      .grid--groups {
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: 1fr .42fr;
+      }
+      .grid--groups .card--ocio {
+        grid-column: span 2;
+        flex-direction: row;
+        gap: 14px;
+        padding-bottom: 12px;
+        background: var(--tint);
+      }
+      .grid--groups .card--ocio span { align-self: center; margin: 0; background: none; }
+      .grid--groups .card--ocio img { flex: 0 1 auto; height: 100%; width: auto; }
+    }
     @media (min-width: 900px) and (orientation: landscape) {
-      .card--group img { max-width: 200px; }
       .card img { max-width: 160px; }
     }
     @media (min-width: 1200px) {
       #selected-img { width: 140px; height: 140px; }
       .card img { max-width: 180px; }
+      .card--group img { max-width: min(100%, 240px); }
     }
 
     /* ── Urgency overlay ── */
@@ -758,98 +846,88 @@
 
   <!-- ══════ Setup screen ══════ -->
   <div id="setup-screen">
-    <div class="setup-logo">PapaTalk</div>
-    <div class="setup-subtitle">Tablero de comunicaci&oacute;n para pacientes</div>
-
-    <button class="btn-start" id="btn-start" onclick="startApp()">&#9654; Comenzar</button>
-    <div class="setup-hint">O pulsa la tecla de avanzar para comenzar</div>
-
-    <div class="setup-section">
-      <h2><span class="icon">&#9432;</span> C&oacute;mo funciona</h2>
-      <p>PapaTalk puede usarse de dos formas:</p>
-      <ul>
-        <li><span class="mode-icon">&#128400;</span>
-          <span><strong>T&aacute;ctil / rat&oacute;n:</strong> toca o haz clic directamente en las tarjetas para navegar y comunicar.</span>
-        </li>
-        <li><span class="mode-icon">&#9000;</span>
-          <span><strong>Teclado / pulsador:</strong> usa dos botones configurables para navegar mediante pulsaciones.</span>
-        </li>
-      </ul>
+    <div class="setup-top">
+      <div class="setup-brand">
+        <div class="setup-logo">PapaTalk</div>
+        <div class="setup-subtitle">Tablero de comunicaci&oacute;n para pacientes</div>
+      </div>
+      <div class="setup-go">
+        <button class="btn-start" id="btn-start" onclick="startApp()">&#9654; Comenzar</button>
+        <div class="setup-hint">O pulsa la tecla de avanzar para comenzar</div>
+      </div>
     </div>
 
-    <div class="setup-section">
-      <h2><span class="icon">&#128266;</span> S&iacute;ntesis de voz</h2>
-      <p>Cada tarjeta seleccionada se lee en voz alta autom&aacute;ticamente. Al navegar con el pulsador, tambi&eacute;n se lee cada tarjeta al pasar por ella.</p>
-      <div class="voice-row">
-        <label for="voice-select">Voz</label>
-        <div class="voice-select-wrap">
-          <select id="voice-select"></select>
-          <button class="voice-test" id="voice-test" onclick="testVoice()">&#9654;</button>
+    <div class="setup-cols">
+      <div class="setup-section">
+        <h2><span class="icon">&#9000;</span> Pulsador</h2>
+        <div class="key-row">
+          <div class="key-info">
+            <span class="key-label">Adelante</span>
+            <span class="key-hint">Corta: siguiente tarjeta &middot; Larga: seleccionar</span>
+          </div>
+          <button class="key-btn" id="key-scan" onclick="startCapture('scan')"></button>
+        </div>
+        <div class="key-row">
+          <div class="key-info">
+            <span class="key-label">Atr&aacute;s</span>
+            <span class="key-hint">Corta: tarjeta anterior &middot; Larga: borrar letra</span>
+          </div>
+          <button class="key-btn" id="key-back" onclick="startCapture('back')"></button>
+        </div>
+        <div class="duration-row">
+          <label>Pulsaci&oacute;n larga (seleccionar)</label>
+          <div class="slider-wrap">
+            <input type="range" id="duration-slider" min="300" max="1500" step="50">
+            <span class="duration-value" id="duration-value"></span>
+          </div>
+        </div>
+        <button class="btn-test" onclick="openTest()">&#127919; Probar botones</button>
+      </div>
+
+      <div class="setup-section setup-section--urgency">
+        <h2><span class="icon">&#128680;</span> Llamada de urgencia</h2>
+        <ul>
+          <li><span class="mode-icon">&#9889;</span>
+            <span><strong>5 pulsaciones r&aacute;pidas</strong> de cualquier bot&oacute;n en la ventana de tiempo configurada.</span>
+          </li>
+          <li><span class="mode-icon">&#128400;</span>
+            <span><strong>Mantener pulsado</strong> cualquier bot&oacute;n durante m&aacute;s de 3 segundos.</span>
+          </li>
+        </ul>
+        <p>Se activa una pantalla roja con alarma sonora. Pulsa cualquier tecla o el bot&oacute;n Volver para desactivarla.</p>
+        <div class="duration-row">
+          <label>Ventana de detecci&oacute;n (5 pulsaciones en...)</label>
+          <div class="slider-wrap">
+            <input type="range" id="urgency-slider" min="1000" max="5000" step="250">
+            <span class="duration-value" id="urgency-value"></span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="setup-section">
-      <h2><span class="icon">&#9000;</span> Controles del pulsador</h2>
-      <div class="key-desc">
-        <strong>Adelante (pulsaci&oacute;n corta)</strong>
-        Mueve el resaltado a la siguiente tarjeta y lee su nombre en voz alta.
-      </div>
-      <div class="key-desc">
-        <strong>Adelante (mantener pulsado)</strong>
-        Selecciona la tarjeta resaltada. Dice &laquo;Selecci&oacute;n: ...&raquo; y ejecuta la acci&oacute;n.
-      </div>
-      <div class="key-desc">
-        <strong>Atr&aacute;s (pulsaci&oacute;n corta)</strong>
-        Mueve el resaltado a la tarjeta anterior.
-      </div>
-      <div class="key-desc">
-        <strong>Atr&aacute;s (mantener pulsado)</strong>
-        En la pantalla de letras y n&uacute;meros, borra el &uacute;ltimo car&aacute;cter escrito.
-      </div>
-    </div>
-
-    <div class="setup-section setup-section--urgency">
-      <h2><span class="icon">&#128680;</span> Llamada de urgencia</h2>
-      <p>El paciente puede activar una alerta de urgencia de dos formas:</p>
-      <ul>
-        <li><span class="mode-icon">&#9889;</span>
-          <span><strong>5 pulsaciones r&aacute;pidas</strong> de cualquier bot&oacute;n en la ventana de tiempo configurada.</span>
-        </li>
-        <li><span class="mode-icon">&#128400;</span>
-          <span><strong>Mantener pulsado</strong> cualquier bot&oacute;n durante m&aacute;s de 3 segundos.</span>
-        </li>
-      </ul>
-      <p>Se activa una pantalla roja con alarma sonora. Pulsa cualquier tecla o el bot&oacute;n Volver para desactivarla.</p>
-      <div class="duration-row">
-        <label>Ventana de detecci&oacute;n (5 pulsaciones en...)</label>
-        <div class="slider-wrap">
-          <input type="range" id="urgency-slider" min="1000" max="5000" step="250">
-          <span class="duration-value" id="urgency-value"></span>
+      <div class="setup-section">
+        <h2><span class="icon">&#128266;</span> S&iacute;ntesis de voz</h2>
+        <p>Cada tarjeta seleccionada se lee en voz alta autom&aacute;ticamente. Al navegar con el pulsador, tambi&eacute;n se lee cada tarjeta al pasar por ella.</p>
+        <div class="voice-row">
+          <label for="voice-select">Voz</label>
+          <div class="voice-select-wrap">
+            <select id="voice-select"></select>
+            <button class="voice-test" id="voice-test" onclick="testVoice()">&#9654;</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="setup-section">
-      <h2><span class="icon">&#9881;</span> Configuraci&oacute;n del pulsador</h2>
-      <div class="key-row">
-        <span class="key-label">Adelante</span>
-        <button class="key-btn" id="key-scan" onclick="startCapture('scan')"></button>
-      </div>
-      <div class="key-row">
-        <span class="key-label">Atr&aacute;s</span>
-        <button class="key-btn" id="key-back" onclick="startCapture('back')"></button>
-      </div>
-      <div class="duration-row">
-        <label>Pulsaci&oacute;n larga (seleccionar)</label>
-        <div class="slider-wrap">
-          <input type="range" id="duration-slider" min="300" max="1500" step="50">
-          <span class="duration-value" id="duration-value"></span>
-        </div>
+      <div class="setup-section">
+        <h2><span class="icon">&#9432;</span> C&oacute;mo funciona</h2>
+        <ul>
+          <li><span class="mode-icon">&#128400;</span>
+            <span><strong>T&aacute;ctil / rat&oacute;n:</strong> toca o haz clic directamente en las tarjetas para navegar y comunicar.</span>
+          </li>
+          <li><span class="mode-icon">&#9000;</span>
+            <span><strong>Teclado / pulsador:</strong> dos botones configurables; el resaltado recorre las tarjetas y una pulsaci&oacute;n larga selecciona.</span>
+          </li>
+        </ul>
       </div>
     </div>
-
-    <button class="btn-test" onclick="openTest()">&#127919; Probar botones</button>
 
     <div class="setup-attribution">
       <strong>PapaTalk</strong> &mdash; Tablero de comunicaci&oacute;n aumentativa para pacientes intubados en UCI.<br>
@@ -1138,8 +1216,9 @@ const DATA = [
   {
     id: 'juegos',
     label: 'Juegos',
-    emoji: '🎮',
-    color: '#7B1FA2',
+    img: 'img/pictograms/group_juegos.png',
+    color: '#6A1B9A',
+    ocio: true,
     items: [
       { label: 'Vuela', emoji: '🐦', url: 'vuela.html' },
       { label: 'Salta', emoji: '🟦', url: 'salta.html' },
@@ -1149,8 +1228,9 @@ const DATA = [
   {
     id: 'curiosidades',
     label: 'Curiosidades',
-    emoji: '💡',
-    color: '#0288D1',
+    img: 'img/pictograms/group_curiosidades.png',
+    color: '#00838F',
+    ocio: true,
     url: 'curiosidades.html'
   },
 ];
@@ -1235,6 +1315,7 @@ function createEmojiCard(emoji, text, extraClass, dataGroup) {
 function showGroups() {
   dismissOverlay();
   backFn = openSetup;
+  painPrefix = null;
   $header.classList.remove('hidden');
   $title.textContent = 'PapaTalk';
   $title.style.color = '#2E7D32';
@@ -1245,9 +1326,10 @@ function showGroups() {
   grid.className = 'grid grid--groups';
 
   DATA.forEach(group => {
+    const cls = 'card--group' + (group.ocio ? ' card--ocio' : '');
     const card = group.emoji
-      ? createEmojiCard(group.emoji, group.label, 'card--group', group.id)
-      : createCard(group.img, group.label, 'card--group', group.id);
+      ? createEmojiCard(group.emoji, group.label, cls, group.id)
+      : createCard(group.img, group.label, cls, group.id);
     card.addEventListener('click', () => {
       if (group.url) {
         if (!scanActivating) speak(group.label);
@@ -1278,7 +1360,7 @@ function showItems(group) {
   $grid.innerHTML = '';
 
   const grid = document.createElement('div');
-  grid.className = 'grid grid--items';
+  grid.className = 'grid grid--items' + (group.items.length <= 3 ? ' grid--few' : '');
   grid.setAttribute('data-color', group.id);
 
   group.items.forEach(item => {
@@ -1532,6 +1614,7 @@ function clearScanHighlight() {
 }
 
 function advanceScan() {
+  cancelActivation();
   clearScanHighlight();
   if (scanElements.length === 0) return;
   scanIndex = (scanIndex + 1) % scanElements.length;
@@ -1542,6 +1625,7 @@ function advanceScan() {
 }
 
 function retreatScan() {
+  cancelActivation();
   clearScanHighlight();
   if (scanElements.length === 0) return;
   if (scanIndex <= 0) {
@@ -1555,16 +1639,32 @@ function retreatScan() {
   speak(getScanLabel(el));
 }
 
+/* Each selection gets a token: pressing again during «Selección: …» cancels it
+   (cancelActivation), and a late onend from the cancelled utterance is ignored. */
+let activationToken = 0;
+
+function cancelActivation() {
+  activationToken++;
+  scanActivating = false;
+}
+
 function activateScan() {
   if (scanIndex < 0 || scanIndex >= scanElements.length) return;
   const el = scanElements[scanIndex];
   const label = getScanLabel(el);
   const isLetterCard = el.querySelector('.letter-big');
+  const token = ++activationToken;
   scanActivating = true;
-  speak(isLetterCard ? 'Selección' : 'Selección: ' + label, () => {
+  const finish = () => {
+    if (token !== activationToken) return;
+    activationToken++;
+    clearTimeout(fallback);
     el.click();
     scanActivating = false;
-  });
+  };
+  /* Some voices never fire onend: select anyway after a few seconds. */
+  const fallback = setTimeout(finish, 4000);
+  speak(isLetterCard ? 'Selección' : 'Selección: ' + label, finish);
 }
 
 /* ── Keyboard handler ── */
@@ -1586,6 +1686,13 @@ document.addEventListener('keydown', e => {
   if ((e.code === config.scanCode || e.code === config.backCode) && !urgencyActive) {
     clearTimeout(urgencyHoldTimer);
     urgencyHoldTimer = setTimeout(() => { showUrgency(); }, 3000);
+  }
+
+  /* Urgency active: any key dismisses (also during the button test) */
+  if (urgencyActive) {
+    e.preventDefault();
+    dismissUrgency();
+    return;
   }
 
   /* Test mode */
@@ -1614,13 +1721,6 @@ document.addEventListener('keydown', e => {
         }, config.longPress);
       }
     }
-    return;
-  }
-
-  /* Urgency active: any key dismisses */
-  if (urgencyActive) {
-    e.preventDefault();
-    dismissUrgency();
     return;
   }
 
@@ -1789,7 +1889,7 @@ function stopAlarm() {
 
 /* ── Service Worker ── */
 /* DEVELOPMENT: keep true to remove old Service Workers and Cache Storage.
-   PRODUCTION: set false to enable offline mode through sw.js. */
+   PRODUCTION: the deploy workflow sets it to false (offline mode through sw.js). */
 const PAPATALK_DEV_MODE = true;
 
 if ('serviceWorker' in navigator) {

@@ -10,9 +10,10 @@ Referencia de diseño para mantener coherencia visual y funcional en todas las p
 |---|---|
 | Nombre | PapaTalk |
 | Idioma | Español (`lang="es"`) |
-| Tipografía | System stack: `-apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif` |
+| Tipografía (tablero) | **Atkinson Hyperlegible** 400/700, servida desde `fonts/` (sin Google Fonts, funciona offline), con fallback `-apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif`. Variable `--font` |
 | Tipografía (mini-apps) | `system-ui, -apple-system, sans-serif` |
-| Fondo general | `#f5f5f5` |
+| Fondo general | `#f2f4f1` (`--page`) |
+| Texto principal | `#1d2420` (`--ink`) |
 | Color primario (marca) | `#2E7D32` (verde oscuro) |
 | theme-color | `#2E7D32` |
 
@@ -33,22 +34,27 @@ Referencia de diseño para mantener coherencia visual y funcional en todas las p
 
 ### Colores por grupo/categoría
 
-| Grupo | Color borde | Uso |
-|---|---|---|
-| `general` | `#43A047` (--green) | Tarjetas de comunicación general |
-| `cuerpo` | `#E53935` (--red) | "Dónde duele" |
-| `quiero` | `#1E88E5` (--blue) | "Qué quiero" |
-| `letras_numeros` | `#FF8F00` (--orange) | Letras y números |
-| `juegos` | `#7B1FA2` (púrpura) | Mini-juegos |
-| `curiosidades` | `#0288D1` (azul claro) | Curiosidades |
+Cada grupo define tres variables en sus tarjetas (`.card[data-group="…"]` y `[data-color="…"] .card`):
+`--c` (texto del nombre del grupo), `--line` (borde de la tarjeta) y `--tint` (franja del nombre).
+
+| Grupo | `--c` | `--line` | `--tint` | Uso |
+|---|---|---|---|---|
+| `general` | `#2E7D32` | `#9CCB9E` | `#E6F2E6` | Tarjetas de comunicación general |
+| `cuerpo` | `#C62828` | `#EBA3A0` | `#FBE8E7` | "Dónde duele" |
+| `quiero` | `#1565C0` | `#9DBDE6` | `#E4EEFA` | "Qué quiero" |
+| `letras_numeros` | `#E65100` | `#F3B98A` | `#FFF0DF` | Letras y números |
+| `juegos` | `#6A1B9A` | `#C7A2DA` | `#F2E7F7` | Mini-juegos |
+| `curiosidades` | `#00838F` | `#8FCBD0` | `#DFF3F4` | Curiosidades |
+
+`DATA[].color` (color del overlay de selección y del título) usa el mismo `--c` del grupo. No usar `color-mix()`: algunas tablets antiguas no lo soportan.
 
 ### Colores semánticos
 
 | Uso | Color | Contexto |
 |---|---|---|
-| Sí | fondo `#E8F5E9`, borde `#2E7D32` | Tarjeta de afirmación |
-| No | fondo `#FFEBEE`, borde `#C62828` | Tarjeta de negación |
-| Letras | fondo `#FFF8E1` | Tarjetas de escritura |
+| Sí | fondo `#E6F4E7`, franja `#CDEBCF`, borde `#2E7D32` | Tarjeta de afirmación |
+| No | fondo `#FCEBEA`, franja `#F8D3D1`, borde `#C62828` | Tarjeta de negación |
+| Letras | fondo `--tint` de `letras_numeros` | Tarjetas de escritura |
 | Writer bar | fondo `#FFF8E1`, borde `#FF8F00` | Barra de texto escrito |
 | Urgencia | fondo `#D32F2F` ↔ `#B71C1C` | Alarma pulsante |
 | Urgencia info | fondo `#FFF5F5`, borde `#FFCDD2` | Recuadro informativo setup |
@@ -65,10 +71,11 @@ Referencia de diseño para mantener coherencia visual y funcional en todas las p
 | Sección h2 | 16px | 700 | `#333` |
 | Sección párrafo | 14px | normal | `#555` |
 | Labels | 15px | 600 | `#444` |
-| Botón principal | 22px | 800 | `#fff` |
+| Botón principal | 22px | 700 | `#fff` |
 | Botón secundario | 17px | 700 | `#555` |
-| Nombre de tarjeta | `clamp(13px, 2.2vw, 20px)` | 700 | `#222` |
-| Nombre de grupo | `clamp(18px, 3vw, 28px)` | 700 | `#222` |
+| Nombre de tarjeta | `clamp(13px, 2.2vw, 20px)` | 700 | `--ink` |
+| Nombre de grupo | `clamp(18px, 3vw, 28px)` | 700 | `--c` del grupo |
+| Ayuda de tecla (setup) | 13px | normal | `#777` |
 | Título header | `clamp(20px, 3.5vw, 30px)` | 700 | `#333` |
 | Overlay selección | `clamp(28px, 5vw, 48px)` | 700 | `#fff` |
 | Overlay urgencia | `clamp(52px, 12vw, 96px)` | 900 | `#fff` |
@@ -80,29 +87,49 @@ Referencia de diseño para mantener coherencia visual y funcional en todas las p
 
 ### 4.1 Tarjetas (`.card`)
 
+Una sola forma de tarjeta en todo el tablero:
+
 ```css
 background: #fff;
-border-radius: 18px;
-border: 4px solid #e0e0e0;  /* se sobreescribe por grupo */
-box-shadow: 0 2px 8px rgba(0,0,0,.08);
-padding: 10px 6px;
-transition: transform .12s ease, border-color .12s ease;
+border-radius: 24px;
+border: 2px solid var(--line);          /* color suave del grupo */
+box-shadow: var(--card-shadow);         /* 0 1px 2px …06, 0 6px 18px …07 */
+padding: 12px 12px 0;
+gap: 8px;
 ```
 
+- El nombre (`span`) es una franja a todo el ancho al pie de la tarjeta: `background: var(--tint)`, texto `--ink` (o `--c` en las tarjetas de grupo).
 - Feedback táctil: `:active { transform: scale(.94); }`
-- Contienen `<img>` + `<span>` centrados en columna con `gap: 6px`
+- Contienen `<img>` + `<span>` centrados en columna
+- Tarjetas de letra (`.card--letter`): sin franja, `padding-bottom: 12px`; en la rejilla de letras, fondo `--tint`.
+- Tarjetas en fila (`.grid--few` y `.card--ocio` en horizontal): el nombre va al lado del pictograma, sin franja, en color `--c`.
+- Pictogramas siempre de ARASAAC (también los de grupo: `group_juegos.png` = 37464, `group_curiosidades.png` = 6019, a 300 px). Los emoji quedan solo para las tarjetas de cada juego.
 - Animación de entrada: `fadeIn .2s ease` con delays escalonados (`.03s` por tarjeta)
 
-### 4.2 Secciones de setup (`.setup-section`)
+### 4.2 Pantalla de configuración
+
+Estructura: `.setup-top` (marca `.setup-brand` + `.setup-go` con «Comenzar») y `.setup-cols` con las secciones en este orden: **Pulsador**, **Llamada de urgencia**, **Síntesis de voz**, **Cómo funciona**.
+
+| Ancho | `.setup-cols` | Cabecera |
+|---|---|---|
+| < 700px | 1 columna, máx. 500px | apilada y centrada |
+| ≥ 700px | `column-count: 2`, máx. 1040px | marca a la izquierda, «Comenzar» (340px) a la derecha |
+| ≥ 1100px | `column-count: 3`, máx. 1240px | igual |
+
+- Cada sección lleva `break-inside: avoid` para no partirse entre columnas.
+- En «Pulsador», cada tecla es una `.key-row` con `.key-info` (`.key-label` + `.key-hint`, qué hace la pulsación corta y la larga) y el botón `.key-btn`; la fila hace `flex-wrap` para que en 320px el botón baje de línea en vez de desbordar.
+- En la configuración el pulsador solo sirve para «Comenzar» (tecla avanzar) y para la urgencia mantenida; no recorre los controles.
+
+### 4.2b Secciones de setup (`.setup-section`)
 
 ```css
 width: 100%;
-max-width: 500px;
 background: #fff;
-border-radius: 16px;
+border-radius: 20px;
 padding: 20px;
 margin-bottom: 16px;
-box-shadow: 0 2px 8px rgba(0,0,0,.06);
+box-shadow: var(--card-shadow);
+break-inside: avoid;
 ```
 
 - Variante urgencia: `background: #FFF5F5; border: 2px solid #FFCDD2;`
@@ -113,9 +140,9 @@ box-shadow: 0 2px 8px rgba(0,0,0,.06);
 ```css
 padding: 18px;
 font-size: 22px;
-font-weight: 800;
+font-weight: 700;
 border: none;
-border-radius: 16px;
+border-radius: 999px;
 background: #2E7D32;
 color: #fff;
 ```
@@ -129,10 +156,12 @@ padding: 14px;
 font-size: 17px;
 font-weight: 700;
 border: 2px solid #ddd;
-border-radius: 14px;
+border-radius: 999px;
 background: #fff;
 color: #555;
 ```
+
+- Los botones del setup y el «◀ Volver» del tablero son píldoras (`border-radius: 999px`) y heredan la fuente (`font: inherit`).
 
 ### 4.5 Sliders (`.duration-row` + `.slider-wrap`)
 
@@ -156,11 +185,12 @@ background: #2E7D32;
 ```css
 outline: 6px solid #FFD600;
 outline-offset: 4px;
-box-shadow: 0 0 18px 6px rgba(255, 214, 0, .55);
+box-shadow: 0 0 0 4px var(--ink), 0 0 18px 6px rgba(255, 214, 0, .55);
 animation: scanPulse 1s ease-in-out infinite;
 ```
 
 - Pulsa entre amarillo (`#FFD600`) y naranja oscuro (`#FF6F00`)
+- El anillo oscuro (`0 0 0 4px var(--ink)`) separa el amarillo de la tarjeta para que destaque sobre los tintes; mantenerlo también en los fotogramas de `scanPulse`.
 
 ---
 
@@ -185,17 +215,25 @@ animation: scanPulse 1s ease-in-out infinite;
 
 ### Grids del tablero
 
-| Grid | Columnas | Filas |
+| Grid | Vertical | Horizontal (≥ 700px) |
 |---|---|---|
-| Grupos | 2 | 3 (última tarjeta col-span 2) |
-| Items | 3 | 3 |
-| Subgrupos | 2 | 2 |
-| Letras | 3 | auto (última centrada) |
+| Grupos (`.grid--groups`) | 2 columnas, filas `1fr 1fr .5fr`: los 4 de comunicación grandes y Juegos/Curiosidades en una franja baja | 4 columnas, filas `1fr .42fr`: los 4 de comunicación en fila y el ocio (`.card--ocio`, `span 2`) debajo, con el nombre al lado |
+| Items (`.grid--items`) | 3 × 3 | 3 × 3 |
+| Pocas tarjetas (`.grid--few`, ≤ 3 items, p. ej. Juegos) | 1 columna × 3 filas, tarjetas en fila | 3 columnas × 1 fila |
+| Subgrupos | 2 × 2 | 2 × 2 |
+| Letras | 3 × auto (última centrada) | igual |
+
+- Los grupos de ocio se marcan con `ocio: true` en `DATA`; `showGroups()` les pone la clase `.card--ocio`.
+- El orden del barrido es siempre el del DOM (lectura), así que cualquier rejilla nueva debe seguir el orden de izquierda a derecha y de arriba abajo.
 
 ### Media queries
 
+- `orientation: landscape`: `.grid--few` en fila
+- `orientation: landscape` + `min-width: 700px`: rejilla de grupos de 4 columnas
+- `min-width: 700px` / `1100px`: configuración en 2 / 3 columnas
 - `min-width: 900px` + `landscape`: imágenes más grandes
 - `min-width: 1200px`: overlay e imágenes aún más grandes
+- Comprobar siempre a 320, 390, 768 y 1280px que no hay scroll lateral
 
 ---
 
@@ -443,10 +481,23 @@ function playTone(freq, duration) {
 ### Service Worker (`sw.js`)
 
 - `DEV_MODE = true` → network-only, borra caches
-- `DEV_MODE = false` → cache-first con fallback
-- Array `CORE` con todos los HTML + manifest + iconos
+- `DEV_MODE = false` → cache-first con fallback; al instalar descarga todo con `cache: 'reload'`
+- Array `CORE` con todos los HTML + manifest + iconos + fuentes
 - Array `PICTOS` con todos los pictogramas
 - **Al crear una nueva mini-app**: añadirla a `CORE` en `sw.js`
+- **Al añadir un pictograma o una fuente**: añadirlo a `PICTOS` o `CORE`
+- En el repo `sw.js` y `PAPATALK_DEV_MODE` (index.html) se quedan **siempre en modo desarrollo**; el despliegue los pasa a producción (ver §9b).
+
+### 9b. Despliegue
+
+`.github/workflows/deploy.yml` publica en GitHub Pages (https://martinandersen84.github.io/papatalk/) en cada push a `master` (o a mano desde Actions → Deploy → Run workflow):
+
+1. Pone `DEV_MODE = false` y `CACHE_NAME = 'papatalk-<8 primeros caracteres del commit>'` en `sw.js`, y `PAPATALK_DEV_MODE = false` en `index.html`.
+2. Copia a `_site/` los ficheros de la web, sin `.github/`, `.claude/`, `scripts/`, `data/facts/batches/` ni los `.md`.
+3. Lo sube con `actions/upload-pages-artifact` y `actions/deploy-pages`.
+
+- La web vive en la subcarpeta `/papatalk/`: todas las rutas (HTML, `sw.js`, `manifest.json`, imágenes) deben ser **relativas**, nunca empezar por `/`.
+- Pages no lee `.htaccess` ni permite cabeceras propias (sirve todo con caché de 10 min); la actualización la garantizan el `CACHE_NAME` por commit y `updateViaCache: 'none'` al registrar el service worker.
 
 ### Recursos (pictogramas)
 
@@ -490,4 +541,4 @@ function playTone(freq, duration) {
 
 ---
 
-*Última actualización: 2026-07-04*
+*Última actualización: 2026-10-22*
