@@ -92,11 +92,10 @@ body{
   box-shadow:0 0 0 4px rgba(255,235,59,0.4),0 6px 16px rgba(0,0,0,0.4) !important;
 }
 
-/* ── Loading / error ── */
+/* ── Loading / error (bajo la barra superior: ◀ Volver siempre a mano) ── */
 #status{
-  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-  text-align:center;padding:30px;font-size:clamp(16px,4vw,24px);
-  background:#102027;z-index:50;
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:24px;text-align:center;padding:30px;font-size:clamp(16px,4vw,24px);min-height:0;
 }
 .hidden{display:none !important}
 </style>
@@ -111,7 +110,7 @@ body{
 </div>
 
 <!-- Category menu -->
-<div id="menu">
+<div id="menu" class="hidden">
   <div id="menu-grid"></div>
 </div>
 
@@ -123,7 +122,10 @@ body{
   </div>
 </div>
 
-<div id="status">Cargando curiosidades…</div>
+<div id="status">
+  <p id="status-msg">Cargando curiosidades…</p>
+  <button id="btn-retry" class="btn btn--primary hidden">↻ Reintentar</button>
+</div>
 
 <script>
 (function(){
@@ -148,6 +150,8 @@ var longPressMs=ptCfg.longPress||600;
 
 /* ══ DOM refs ══ */
 var $status   =document.getElementById('status');
+var $statusMsg=document.getElementById('status-msg');
+var $btnRetry =document.getElementById('btn-retry');
 var $menu     =document.getElementById('menu');
 var $menuGrid =document.getElementById('menu-grid');
 var $reader   =document.getElementById('reader');
@@ -214,7 +218,7 @@ function saveState(cat,st){
 }
 
 /* ══ View state ══ */
-var view='menu';          /* 'menu' | 'reader' */
+var view='loading';       /* 'loading' | 'menu' | 'reader' | 'error' */
 var currentCat=null;      /* category object */
 
 /* ── Menu rendering ── */
@@ -258,6 +262,10 @@ function enterCategory(cat){
   $factArea.style.background=cat.color;
   $title.textContent=cat.label;
   $btnBack.textContent='◀ Menú';
+  /* Barrido en el lector: Siguiente ▶ y ◀ Menú, empezando en Siguiente */
+  scanEls=[$btnNext,$btnBack];
+  scanIndex=0;
+  $btnNext.classList.add('scan-highlight');
   showNextFact();
 }
 
@@ -280,7 +288,8 @@ function showNextFact(){
   speak(text);
 }
 
-/* ══ Scanning (menu only) ══ */
+/* ══ Scanning ══
+   Igual que el tablero y los juegos: corta = siguiente, larga = elegir. */
 function getScanCards(){
   return Array.prototype.slice.call($menuGrid.querySelectorAll('.cat-card'));
 }
@@ -295,8 +304,15 @@ function clearScanHighlight(){
   for(var i=0;i<hs.length;i++) hs[i].classList.remove('scan-highlight');
 }
 function scanLabel(el){
-  if(el===$btnBack) return 'Volver';
+  if(el===$btnBack) return view==='reader' ? 'Menú' : 'Volver';
+  if(el===$btnNext) return 'Siguiente';
+  if(el===$btnRetry) return 'Reintentar';
   return el._cat ? el._cat.label : '';
+}
+function sayScanLabel(el){
+  /* en el lector no cortar la curiosidad que se está leyendo */
+  if(view==='reader' && ttsReady && speechSynthesis.speaking) return;
+  speak(scanLabel(el));
 }
 function advanceScan(){
   clearScanHighlight();
@@ -305,7 +321,7 @@ function advanceScan(){
   var el=scanEls[scanIndex];
   el.classList.add('scan-highlight');
   el.scrollIntoView({block:'nearest',behavior:'smooth'});
-  speak(scanLabel(el));
+  sayScanLabel(el);
 }
 function retreatScan(){
   clearScanHighlight();
@@ -314,7 +330,7 @@ function retreatScan(){
   var el=scanEls[scanIndex];
   el.classList.add('scan-highlight');
   el.scrollIntoView({block:'nearest',behavior:'smooth'});
-  speak(scanLabel(el));
+  sayScanLabel(el);
 }
 function activateScan(){
   if(scanIndex<0||scanIndex>=scanEls.length) return;
@@ -343,8 +359,9 @@ document.addEventListener('keydown',function(e){
     if(scanKeyDown||scanDebounce) return;
     scanKeyDown=true;
     scanActivated=false;
-    if(view==='menu'){
-      /* long-press selects the highlighted category */
+    if(view!=='loading'){
+      /* long-press selects the highlighted card or button (also in the reader,
+         so a single switch can go back to the menu and to PapaTalk) */
       scanTimer=setTimeout(function(){ scanActivated=true; activateScan(); },longPressMs);
     }
     return;
@@ -354,7 +371,7 @@ document.addEventListener('keydown',function(e){
     if(backKeyDown) return;
     backKeyDown=true;
     backActivated=false;
-    if(view==='menu'){
+    if(view==='menu'||view==='error'){
       /* long-press exits to the main board */
       backTimer=setTimeout(function(){ backActivated=true; window.location.href='index.html'; },longPressMs);
     }
@@ -368,10 +385,7 @@ document.addEventListener('keyup',function(e){
     scanKeyDown=false;
     /* If a long-press already fired (e.g. selecting a category), the release
        must do nothing — even though we may already be in the reader view. */
-    if(!scanActivated){
-      if(view==='menu') advanceScan();          /* short press: next card */
-      else showNextFact();                       /* Botón adelante: siguiente curiosidad */
-    }
+    if(!scanActivated && view!=='loading') advanceScan();   /* short press: next card/button */
     /* Layer 3: brief debounce so a bounce doesn't double-fire */
     scanDebounce=true;
     setTimeout(function(){ scanDebounce=false; },80);
@@ -379,9 +393,9 @@ document.addEventListener('keyup',function(e){
   if(e.code===backCode && backKeyDown){
     e.preventDefault();
     clearTimeout(backTimer);
-    if(view==='menu'){
+    if(view==='menu'||view==='error'){
       if(!backActivated) retreatScan();         /* short press: previous card */
-    }else{ /* reader */
+    }else if(view==='reader'){
       showMenu();                               /* Botón atrás: volver al menú */
     }
     backKeyDown=false;
@@ -405,16 +419,23 @@ function start(){
   showMenu(false);   /* don't auto-speak on first paint (iOS needs a gesture) */
 }
 
+/* Error de carga: mensaje bajo la barra, con Reintentar y ◀ Volver en el barrido */
 function fail(msg){
+  view='error';
   $status.classList.remove('hidden');
-  $status.textContent=msg;
+  $statusMsg.textContent=msg;
+  $btnRetry.classList.remove('hidden');
+  scanIndex=-1;
+  clearScanHighlight();
+  scanEls=[$btnRetry,$btnBack];
 }
+$btnRetry.addEventListener('click',function(){ window.location.reload(); });
 
 fetch('data/facts/facts.json',{cache:'no-store'})
   .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
   .then(function(json){ ingest(json); start(); })
   .catch(function(){
-    fail('No se pudieron cargar las curiosidades. Abre PapaTalk desde su servidor (no funciona con doble clic en el archivo).');
+    fail('No se pudieron cargar las curiosidades. Comprueba la conexión y vuelve a intentarlo.');
   });
 
 })();

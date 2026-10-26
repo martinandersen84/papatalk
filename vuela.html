@@ -47,12 +47,39 @@ canvas{display:block}
   transition:background .2s, transform .15s;
 }
 #btn-mute:active{transform:scale(0.93)}
+/* Menú de pulsador (fuera de la partida): botón principal, pista y resaltado */
+#btn-play{
+  position:fixed;left:50%;top:62%;z-index:10;transform:translateX(-50%);
+  display:none;align-items:center;gap:8px;white-space:nowrap;
+  border:none;border-radius:32px;padding:.7em 1.6em;
+  font:bold clamp(16px,3.4vh,22px)/1 system-ui,-apple-system,sans-serif;
+  color:#fff;background:#2E7D32;cursor:pointer;
+  box-shadow:0 4px 16px rgba(0,0,0,0.3);
+}
+#btn-play:active{transform:translateX(-50%) scale(0.95)}
+#sw-hint{
+  position:fixed;left:0;right:0;bottom:10px;z-index:10;display:none;
+  padding:0 16px;text-align:center;pointer-events:none;
+  font:bold 14px/1.3 system-ui,-apple-system,sans-serif;
+  color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.7);
+}
+@keyframes scanPulse{
+  0%,100%{outline-color:#FFD600;box-shadow:0 0 0 4px #1d2420,0 0 18px 6px rgba(255,214,0,.55)}
+  50%{outline-color:#FF6F00;box-shadow:0 0 0 4px #1d2420,0 0 24px 8px rgba(255,111,0,.65)}
+}
+.scan-highlight{
+  outline:6px solid #FFD600 !important;outline-offset:4px;
+  box-shadow:0 0 0 4px #1d2420,0 0 18px 6px rgba(255,214,0,.55) !important;
+  animation:scanPulse 1s ease-in-out infinite;
+}
 </style>
 </head>
 <body>
 <a id="btn-back" href="index.html">◀ Volver</a>
 <button id="btn-diff" onclick="window._cycleDiff()">⭐ Fácil</button>
 <button id="btn-mute" onclick="window._toggleMute()">🔊</button>
+<button id="btn-play">▶ Jugar</button>
+<div id="sw-hint"></div>
 <canvas id="game"></canvas>
 <script>
 (function(){
@@ -92,11 +119,14 @@ var gameData = {diff: 0, best:[0,0,0]};
 function loadData(){
   try {
     var s = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if(s){ gameData.diff = s.diff||0; gameData.best = s.best||[0,0,0]; }
+    if(s){
+      if(s.diff===0 || s.diff===1 || s.diff===2) gameData.diff = s.diff;
+      if(Array.isArray(s.best) && s.best.length===3) gameData.best = s.best;
+    }
   } catch(e){}
 }
 function saveData(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(gameData));
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(gameData)); } catch(e){}
 }
 loadData();
 
@@ -115,11 +145,15 @@ function updateDiffBtn(){
   btn.style.background = d.color;
 }
 window._cycleDiff = function(){
+  if(state===ST_PLAY) return;
+  if(state!==ST_MENU) toMenu();
   diff = (diff+1) % DIFFS.length;
   gameData.diff = diff;
   saveData();
   updateDiffBtn();
   recalc();
+  best = gameData.best[diff] || 0;
+  swFocus('btn-diff');
 };
 updateDiffBtn();
 
@@ -149,7 +183,8 @@ var musicTimer = null;
 var musicStep = 0;
 var musicNext = 0;
 var musicOn = false;
-var musicMuted = localStorage.getItem('vuela-muted') === '1';
+var musicMuted = false;
+try { musicMuted = localStorage.getItem('vuela-muted') === '1'; } catch(e){}
 
 var BPM = 132;
 var STEP_DUR = 60 / BPM / 4;
@@ -222,6 +257,8 @@ function doMusicStep(step, time){
 
 function musicScheduler(){
   if(!musicOn || !audioCtx) return;
+  /* Si el temporizador se retrasó, saltar los pasos perdidos en vez de tocarlos de golpe */
+  if(musicNext < audioCtx.currentTime) musicNext = audioCtx.currentTime + 0.05;
   while(musicNext < audioCtx.currentTime + 0.2){
     doMusicStep(musicStep, musicNext);
     musicNext += STEP_DUR;
@@ -249,9 +286,25 @@ function stopMusic(){
   }
 }
 
+/* Con la pantalla oculta el temporizador se frena y la música salía a ráfagas:
+   se suspende el audio y se reanuda al volver */
+function pauseAudio(){
+  if(audioCtx && audioCtx.state==='running') audioCtx.suspend();
+}
+function resumeAudio(){
+  if(!audioCtx || audioCtx.state!=='suspended' || document.hidden) return;
+  var p = audioCtx.resume();
+  if(p && p.catch) p.catch(function(){});
+}
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden) pauseAudio(); else resumeAudio();
+});
+window.addEventListener('pagehide', pauseAudio);
+window.addEventListener('pageshow', resumeAudio);
+
 window._toggleMute = function(){
   musicMuted = !musicMuted;
-  localStorage.setItem('vuela-muted', musicMuted ? '1' : '0');
+  try { localStorage.setItem('vuela-muted', musicMuted ? '1' : '0'); } catch(e){}
   if(musicGain) musicGain.gain.value = musicMuted ? 0 : 0.8;
   document.getElementById('btn-mute').textContent = musicMuted ? '🔇' : '🔊';
 };
@@ -320,12 +373,54 @@ function makeClouds(){
   }
 }
 
-/* ── UI visibility ── */
-function showDiffBtn(v){
-  document.getElementById('btn-diff').style.display = v ? 'inline-flex' : 'none';
+/* ── Menú de pulsador (fuera de la partida) ──
+   Igual que el tablero: pulsación corta de avanzar = siguiente opción,
+   larga = elegir. Con un solo pulsador se juega, se cambia la dificultad,
+   se silencia y se sale. Retroceder: corta = opción anterior, larga = salir. */
+var SW_IDS = ['btn-play','btn-diff','btn-mute','btn-back'];
+var btnPlay = document.getElementById('btn-play');
+var swHint = document.getElementById('sw-hint');
+var swOn = false, swEls = [], swIdx = 0;
+swHint.textContent = 'Pulsa ' + keyLabel(scanCode) + ': siguiente  ·  Mantén ' + keyLabel(scanCode) + ': elegir';
+
+function swPaint(){
+  for(var i=0;i<SW_IDS.length;i++) document.getElementById(SW_IDS[i]).classList.remove('scan-highlight');
+  if(swOn && swEls[swIdx]) swEls[swIdx].classList.add('scan-highlight');
 }
+/* label: texto del botón principal; null = partida en curso (menú oculto) */
+function swShow(label){
+  swOn = !!label;
+  btnPlay.style.display = swOn ? 'inline-flex' : 'none';
+  swHint.style.display = swOn ? 'block' : 'none';
+  document.getElementById('btn-diff').style.display = swOn ? 'inline-flex' : 'none';
+  if(swOn) btnPlay.textContent = label;
+  swEls = swOn ? SW_IDS.map(function(id){ return document.getElementById(id); }) : [];
+  swIdx = 0;
+  swPaint();
+}
+function swFocus(id){
+  for(var i=0;i<swEls.length;i++) if(swEls[i].id===id) swIdx = i;
+  swPaint();
+}
+function swMove(step){
+  if(!swEls.length) return;
+  swIdx = (swIdx + step + swEls.length) % swEls.length;
+  tone(523, 0.08, 'sine', 0.08);
+  swPaint();
+}
+function swChoose(){
+  var el = swEls[swIdx];
+  if(!el) return;
+  tone(587, 0.12, 'sine', 0.1);
+  el.click();
+}
+btnPlay.addEventListener('click', function(){
+  ensureAudio();
+  if(swOn) startGame();
+});
 
 /* ── Input ── */
+var scanKeyDown = false, scanLong = false, scanTimer = null;
 var backKeyDown = false;
 var backTimer = null;
 var backActivated = false;
@@ -337,14 +432,22 @@ function onInput(e){
   }
   if(e.cancelable) e.preventDefault();
   ensureAudio();
-  if(state===ST_MENU) startGame();
-  else if(state===ST_PLAY) doFlap();
-  else if(state===ST_OVER && overTime>1200) toMenu();
+  if(state===ST_PLAY) doFlap();
+  else if(swOn) startGame();
 }
 
 document.addEventListener('keydown', function(e){
   if(e.repeat) return;
   if(e.code === scanCode){
+    if(swOn){
+      e.preventDefault();
+      ensureAudio();
+      if(scanKeyDown) return;
+      scanKeyDown = true;
+      scanLong = false;
+      scanTimer = setTimeout(function(){ scanLong = true; swChoose(); }, longPressMs);
+      return;
+    }
     onInput(e);
     return;
   }
@@ -362,14 +465,21 @@ document.addEventListener('keydown', function(e){
   }
 });
 document.addEventListener('keyup', function(e){
+  if(e.code === scanCode && scanKeyDown){
+    clearTimeout(scanTimer);
+    scanKeyDown = false;
+    if(!scanLong && swOn) swMove(1);
+  }
   if(e.code === backCode && backKeyDown){
     clearTimeout(backTimer);
     backKeyDown = false;
+    if(!backActivated && swOn) swMove(-1);
   }
 });
 
 document.addEventListener('touchstart', function(e){
-  if(e.target.id==='btn-back' || e.target.id==='btn-diff' || e.target.id==='btn-mute') return;
+  var id = e.target.id;
+  if(id==='btn-back' || id==='btn-diff' || id==='btn-mute' || id==='btn-play') return;
   onInput(e);
 }, {passive:false});
 canvas.addEventListener('mousedown', function(e){ onInput(e); });
@@ -377,7 +487,7 @@ canvas.addEventListener('mousedown', function(e){ onInput(e); });
 /* ── Game transitions ── */
 function startGame(){
   state = ST_PLAY;
-  showDiffBtn(false);
+  swShow(null);
   score = 0;
   best = gameData.best[diff] || 0;
   bird.y = H*0.42;
@@ -416,7 +526,7 @@ function die(){
 function toMenu(){
   state = ST_MENU;
   stopMusic();
-  showDiffBtn(true);
+  swShow('▶ Jugar');
   bird.y = H*0.42;
   bird.vy = 0;
   bird.angle = 0;
@@ -501,6 +611,7 @@ function update(dt){
 
   if(state===ST_OVER){
     overTime += dt*16.67;
+    if(overTime>1200 && !swOn) swShow('↻ Otra vez');
     flash = Math.max(0, flash - dt*0.04);
     bird.vy += cfg.gravity*dt;
     bird.y += bird.vy*dt;
@@ -813,23 +924,14 @@ function drawMenu(){
   ctx.fillStyle='rgba(255,255,255,0.7)';
   ctx.fillText('Pulsa  ' + keyLabel(scanCode) + '  para subir  ·  Esquiva los tubos', W/2, H*0.235);
 
-  var pulse = 0.5 + Math.sin(tick*0.06)*0.5;
-  ctx.globalAlpha=0.6+pulse*0.4;
-  var fs3=Math.round(H*0.03);
-  ctx.font='bold '+fs3+'px system-ui,sans-serif';
-  ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=3*scale;
-  ctx.strokeText('Pulsa  ' + keyLabel(scanCode) + '  para jugar', W/2, H*0.68);
-  ctx.fillStyle='#FFFFFF';
-  ctx.fillText('Pulsa  ' + keyLabel(scanCode) + '  para jugar', W/2, H*0.68);
-  ctx.globalAlpha=1;
-
+  /* «▶ Jugar» es un botón (#btn-play) a la altura del 62 % */
   if(best>0){
     var fs4=Math.round(H*0.022);
     ctx.font='bold '+fs4+'px system-ui,sans-serif';
     ctx.fillStyle='#FFD54F';
     ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=3*scale;
-    ctx.strokeText('Récord ('+DIFFS[diff].name+'): '+best, W/2, H*0.74);
-    ctx.fillText('Récord ('+DIFFS[diff].name+'): '+best, W/2, H*0.74);
+    ctx.strokeText('Récord ('+DIFFS[diff].name+'): '+best, W/2, H*0.79);
+    ctx.fillText('Récord ('+DIFFS[diff].name+'): '+best, W/2, H*0.79);
   }
 
   ctx.restore();
@@ -852,7 +954,7 @@ function drawGameOver(){
   ctx.fillRect(0,0,W,H);
 
   var pw=Math.min(W*0.78, 300*scale);
-  var ph=H*0.4;
+  var ph=H*0.36;
   var px=(W-pw)/2;
   var py=H*0.2;
 
@@ -891,16 +993,7 @@ function drawGameOver(){
   var isNew = (score === best && score > 0);
   ctx.fillStyle = isNew ? '#FF8F00' : '#777';
   ctx.fillText(isNew ? '¡Nuevo récord!' : 'Récord: '+best, W/2, py+ph*0.64);
-
-  if(overTime>1200){
-    var p2 = 0.5+Math.sin(tick*0.06)*0.5;
-    ctx.globalAlpha=0.5+p2*0.5;
-    var fs4=Math.round(H*0.02);
-    ctx.font='bold '+fs4+'px system-ui,sans-serif';
-    ctx.fillStyle='#888';
-    ctx.fillText('Pulsa  ' + keyLabel(scanCode) + '  para reintentar', W/2, py+ph*0.78);
-    ctx.globalAlpha=1;
-  }
+  /* «↻ Otra vez» aparece como botón (#btn-play) bajo el panel */
 
   if(flash>0){
     ctx.fillStyle='rgba(255,255,255,'+flash+')';
@@ -940,7 +1033,7 @@ function loop(ts){
 /* ── Init ── */
 resize();
 makeClouds();
-showDiffBtn(true);
+swShow('▶ Jugar');
 bird.y = H*0.42;
 requestAnimationFrame(function(ts){
   lastTs=ts;
