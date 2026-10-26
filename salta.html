@@ -46,12 +46,39 @@ canvas{display:block}
   transition:background .2s;
 }
 #btn-mute:active{background:rgba(0,0,0,0.6)}
+/* Menú de pulsador (fuera de la partida): botón principal, pista y resaltado */
+#btn-play{
+  position:fixed;left:50%;top:62%;z-index:10;transform:translateX(-50%);
+  display:none;align-items:center;gap:8px;white-space:nowrap;
+  border:none;border-radius:32px;padding:.7em 1.6em;
+  font:bold clamp(16px,3.4vh,22px)/1 system-ui,-apple-system,sans-serif;
+  color:#0a0a1a;background:#00E5FF;cursor:pointer;
+  box-shadow:0 0 18px rgba(0,229,255,0.45);
+}
+#btn-play:active{transform:translateX(-50%) scale(0.95)}
+#sw-hint{
+  position:fixed;left:0;right:0;bottom:10px;z-index:10;display:none;
+  padding:0 16px;text-align:center;pointer-events:none;
+  font:bold 14px/1.3 system-ui,-apple-system,sans-serif;
+  color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.7);
+}
+@keyframes scanPulse{
+  0%,100%{outline-color:#FFD600;box-shadow:0 0 0 4px #1d2420,0 0 18px 6px rgba(255,214,0,.55)}
+  50%{outline-color:#FF6F00;box-shadow:0 0 0 4px #1d2420,0 0 24px 8px rgba(255,111,0,.65)}
+}
+.scan-highlight{
+  outline:6px solid #FFD600 !important;outline-offset:4px;
+  box-shadow:0 0 0 4px #1d2420,0 0 18px 6px rgba(255,214,0,.55) !important;
+  animation:scanPulse 1s ease-in-out infinite;
+}
 </style>
 </head>
 <body>
 <a id="btn-back" href="index.html">◀ Volver</a>
 <button id="btn-diff" onclick="window._cycleDiff()">⭐ Fácil</button>
 <button id="btn-mute" onclick="window._toggleMute()">🔊</button>
+<button id="btn-play">▶ Jugar</button>
+<div id="sw-hint"></div>
 <canvas id="game"></canvas>
 <script>
 (function(){
@@ -94,17 +121,17 @@ function mulberry32(a){
 
 /* ══ Game data ══ */
 var STORAGE_KEY='salta-data';
+var NLVL=5;
 var gameData={diff:0,best:[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]};
 function loadData(){
   try{var s=JSON.parse(localStorage.getItem(STORAGE_KEY));
-  if(s){gameData.diff=s.diff||0;
-    if(s.best&&Array.isArray(s.best[0])) gameData.best=s.best;
+  if(s){if(s.diff===0||s.diff===1||s.diff===2) gameData.diff=s.diff;
+    if(Array.isArray(s.best)&&s.best.length===3&&s.best.every(function(b){return Array.isArray(b)&&b.length===NLVL;})) gameData.best=s.best;
   }}catch(e){}
 }
-function saveData(){localStorage.setItem(STORAGE_KEY,JSON.stringify(gameData));}
+function saveData(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(gameData));}catch(e){}}
 loadData();
 
-var NLVL=5;
 function curLvl(d){
   for(var i=0;i<NLVL;i++) if(gameData.best[d][i]<100) return i;
   return NLVL-1;
@@ -147,10 +174,13 @@ function updateDiffBtn(){
   btn.style.background=d.color;
 }
 window._cycleDiff=function(){
+  if(state===ST_PLAY)return;
+  if(state!==ST_MENU)toMenu();
   diff=(diff+1)%DIFFS.length;
   gameData.diff=diff;
   lvl=curLvl(diff);
   saveData();updateDiffBtn();
+  swFocus('btn-diff');
 };
 updateDiffBtn();
 
@@ -229,6 +259,8 @@ function musHH(t){
 function musSched(){
   if(!musOn||!audioCtx)return;
   var ct=audioCtx.currentTime,bs=60/(MUS_BPM[diff]*4);
+  /* Si el temporizador se retrasó, saltar los pasos perdidos en vez de tocarlos de golpe */
+  if(musNext<ct)musNext=ct+0.05;
   while(musNext<ct+0.1){
     var s=musBeat%16,d=diff;
     if(MK[s])musKick(musNext);
@@ -265,6 +297,17 @@ function toggleMute(){
 function updateMuteBtn(){document.getElementById('btn-mute').textContent=musMuted?'🔇':'🔊';}
 window._toggleMute=toggleMute;
 
+/* Con la pantalla oculta el temporizador se frena y la música salía a ráfagas:
+   se suspende el audio y se reanuda al volver */
+function pauseAudio(){if(audioCtx&&audioCtx.state==='running')audioCtx.suspend();}
+function resumeAudio(){
+  if(!audioCtx||audioCtx.state!=='suspended'||document.hidden)return;
+  var p=audioCtx.resume();if(p&&p.catch)p.catch(function(){});
+}
+document.addEventListener('visibilitychange',function(){if(document.hidden)pauseAudio();else resumeAudio();});
+window.addEventListener('pagehide',pauseAudio);
+window.addEventListener('pageshow',resumeAudio);
+
 /* ══ Pattern builder ══ */
 function makePat(id,cx,sz,gy,sH,bW){
   var obs=[],pits=[],end=cx;
@@ -279,7 +322,8 @@ function makePat(id,cx,sz,gy,sH,bW){
   }else if(id==='bt'){
     obs.push({t:'block',x:cx,y:gy-sz*2,w:sz*bW,h:sz*2,solid:true});end=cx+sz*bW;
   }else if(id==='pi'){
-    obs.push({t:'block',x:cx,y:gy-sz*3,w:sz*1.0,h:sz*3,solid:true});end=cx+sz;
+    /* El salto máximo ronda 2,6 cubos: nada que haya que saltar desde el suelo pasa de 2,25 */
+    obs.push({t:'block',x:cx,y:gy-sz*2.25,w:sz*1.0,h:sz*2.25,solid:true});end=cx+sz;
   }else if(id==='ps'){
     pits.push({x:cx,w:sz*2.5});end=cx+sz*2.5;
   }else if(id==='pm'){
@@ -294,13 +338,13 @@ function makePat(id,cx,sz,gy,sH,bW){
     end=cx+sw*4.2;
   }else if(id==='sd'){
     var sw=sz*bW;
-    obs.push({t:'block',x:cx,y:gy-sz*3,w:sw,h:sz*3,solid:true});
-    obs.push({t:'block',x:cx+sw*1.6,y:gy-sz*2,w:sw,h:sz*2,solid:true});
-    obs.push({t:'block',x:cx+sw*3.2,y:gy-sz,w:sw,h:sz,solid:true});
+    obs.push({t:'block',x:cx,y:gy-sz*2.25,w:sw,h:sz*2.25,solid:true});
+    obs.push({t:'block',x:cx+sw*1.6,y:gy-sz*1.5,w:sw,h:sz*1.5,solid:true});
+    obs.push({t:'block',x:cx+sw*3.2,y:gy-sz*0.75,w:sw,h:sz*0.75,solid:true});
     end=cx+sw*4.2;
   }else if(id==='pp'){
     pits.push({x:cx,w:sz*4});
-    obs.push({t:'block',x:cx+sz*0.7,y:gy-sz*2.5,w:sz*2.6,h:sz*0.55,solid:true});
+    obs.push({t:'block',x:cx+sz*0.7,y:gy-sz*1.75,w:sz*2.6,h:sz*0.55,solid:true});
     end=cx+sz*4;
   }else if(id==='bs'){
     obs.push({t:'block',x:cx,y:gy-sz,w:sz*bW,h:sz,solid:false});
@@ -318,6 +362,8 @@ function makePat(id,cx,sz,gy,sH,bW){
 }
 
 /* ══ Level builder ══ */
+var LEAD_FRAMES=120;   /* ~2 s de carrera antes del primer obstáculo */
+var JUMP_WINDOW=10;    /* fotogramas mínimos para acertar cada salto */
 function buildLevel(di,li){
   var d=DIFFS[di];
   var rng=mulberry32(di*1000+li*137+42);
@@ -326,15 +372,30 @@ function buildLevel(di,li){
   var pool=POOLS[di][li];
   var nSeg=d.segs[li];
   var obs=[],pits=[];
-  var cx=PX+sz*8;
+  var spd=d.speeds[li]*scale;
+  /* Un salto recorre A px en horizontal. Tras saltar un obstáculo se aterriza,
+     como pronto, en `land`; el siguiente empieza lo bastante lejos para dejar
+     JUMP_WINDOW fotogramas de margen al pulsar (si no, hay tramos imposibles). */
+  var A=2*(-d.jump)/d.gravity*spd;
+  var land=PX;
+  var cx=PX+Math.max(sz*8,spd*LEAD_FRAMES);
 
   for(var i=0;i<nSeg;i++){
     var id=pool[Math.floor(rng()*pool.length)];
     var r=makePat(id,cx,sz,gy,sH,bW);
     for(var j=0;j<r.obs.length;j++) obs.push(r.obs[j]);
     for(var j=0;j<r.pits.length;j++) pits.push(r.pits[j]);
-    cx=r.end;
-    cx+=(d.gapMin+rng()*(d.gapMax-d.gapMin))*sz;
+    /* Fosos y pinchos en el suelo obligan a saltar; los bloques (y el pincho
+       sobre bloque decorativo) se pueden cruzar por el suelo, pero saltar desde
+       dentro de ellos es chocar: hay que salir antes de volver a saltar. */
+    var mustJump=r.pits.length>0;
+    for(var j=0;j<r.obs.length;j++){
+      var o=r.obs[j];
+      if(o.t==='spike'&&o.y+o.h>=gy-1) mustJump=true;
+    }
+    land=mustJump?Math.max(land,r.end-A)+A:Math.max(land,r.end);
+    cx=r.end+(d.gapMin+rng()*(d.gapMax-d.gapMin))*sz;
+    cx=Math.max(cx,land+sz+spd*JUMP_WINDOW);
   }
 
   return{obs:obs,pits:pits,len:cx-PX+sz*3};
@@ -357,6 +418,7 @@ function groundY(){return H*0.82;}
 
 /* ══ Resize ══ */
 function resize(){
+  var oldSz=player.size,oldPX=PX,oldGy=H?groundY():0;
   W=window.innerWidth;H=window.innerHeight;
   canvas.width=W*dpr;canvas.height=H*dpr;
   canvas.style.width=W+'px';canvas.style.height=H+'px';
@@ -365,8 +427,24 @@ function resize(){
   player.size=36*scale;
   PX=W*0.18;
   if(state===ST_MENU){player.y=groundY()-player.size;makeStars();}
+  else if(oldSz){rescaleLevel(oldSz,oldPX,oldGy);makeStars();}
 }
 window.addEventListener('resize',resize);
+
+/* El nivel está en píxeles: al girar la pantalla en plena partida se reescala
+   todo alrededor del cubo para que obstáculos y suelo sigan cuadrando */
+function rescaleLevel(oldSz,oldPX,oldGy){
+  var k=player.size/oldSz,gy=groundY();
+  function sx(x){return PX+(x-oldPX)*k;}
+  function sy(y){return gy-(oldGy-y)*k;}
+  for(var i=0;i<lvlObs.length;i++){
+    var o=lvlObs[i];o.x=sx(o.x);o.y=sy(o.y);o.w*=k;o.h*=k;
+  }
+  for(var i=0;i<lvlPits.length;i++){lvlPits[i].x=sx(lvlPits[i].x);lvlPits[i].w*=k;}
+  lvlLen*=k;lvlDist*=k;speed*=k;
+  player.y=sy(player.y);player.vy*=k;player.prevBottom=player.y+player.size;
+  trail=[];particles=[];
+}
 
 function makeStars(){
   bgStars=[];
@@ -376,19 +454,60 @@ function makeStars(){
     tw:Math.random()*Math.PI*2,br:0.2+Math.random()*0.55});
 }
 
-function showDiffBtn(v){document.getElementById('btn-diff').style.display=v?'inline-flex':'none';}
+/* ══ Menú de pulsador (fuera de la partida) ══
+   Igual que el tablero: pulsación corta de avanzar = siguiente opción,
+   larga = elegir. Con un solo pulsador se juega, se cambia la dificultad,
+   se silencia y se sale. Retroceder: corta = opción anterior, larga = salir. */
+var SW_IDS=['btn-play','btn-diff','btn-mute','btn-back'];
+var btnPlay=document.getElementById('btn-play');
+var swHint=document.getElementById('sw-hint');
+var swOn=false,swEls=[],swIdx=0;
+swHint.textContent='Pulsa '+keyLabel(scanCode)+': siguiente  ·  Mantén '+keyLabel(scanCode)+': elegir';
+
+function swPaint(){
+  for(var i=0;i<SW_IDS.length;i++)document.getElementById(SW_IDS[i]).classList.remove('scan-highlight');
+  if(swOn&&swEls[swIdx])swEls[swIdx].classList.add('scan-highlight');
+}
+/* label: texto del botón principal; null = partida en curso (menú oculto) */
+function swShow(label){
+  swOn=!!label;
+  btnPlay.style.display=swOn?'inline-flex':'none';
+  swHint.style.display=swOn?'block':'none';
+  document.getElementById('btn-diff').style.display=swOn?'inline-flex':'none';
+  if(swOn)btnPlay.textContent=label;
+  swEls=swOn?SW_IDS.map(function(id){return document.getElementById(id);}):[];
+  swIdx=0;swPaint();
+}
+function swFocus(id){
+  for(var i=0;i<swEls.length;i++)if(swEls[i].id===id)swIdx=i;
+  swPaint();
+}
+function swMove(step){
+  if(!swEls.length)return;
+  swIdx=(swIdx+step+swEls.length)%swEls.length;
+  tone(523,0.08,'sine',0.08);swPaint();
+}
+function swChoose(){
+  var el=swEls[swIdx];if(!el)return;
+  tone(587,0.12,'sine',0.1);el.click();
+}
+function playAction(){
+  if(!swOn)return;
+  if(state===ST_WIN)advanceLevel();
+  else startGame();
+}
+btnPlay.addEventListener('click',function(){ensureAudio();playAction();});
 
 /* ══ Input ══ */
-var backKeyDown=false,backTimer=null,scanKeyDown=false;
+var backKeyDown=false,backTimer=null,backActivated=false;
+var scanKeyDown=false,scanLong=false,scanTimer=null;
 
 function onInput(e){
   if(e.type==='keydown'){if(e.repeat)return;if(e.code!==scanCode)return;}
   if(e.cancelable)e.preventDefault();
-  ensureAudio();inputHeld=true;
-  if(state===ST_MENU) startGame();
-  else if(state===ST_PLAY) doJump();
-  else if(state===ST_WIN&&stateTime>800) advanceLevel();
-  else if(state===ST_OVER&&stateTime>1000) toMenu();
+  ensureAudio();
+  if(state===ST_PLAY){inputHeld=true;doJump();}
+  else playAction();
 }
 function onInputUp(e){
   if(e.type==='keyup'&&e.code!==scanCode)return;
@@ -397,29 +516,48 @@ function onInputUp(e){
 
 document.addEventListener('keydown',function(e){
   if(e.repeat)return;
-  if(e.code===scanCode){if(scanKeyDown)return;scanKeyDown=true;onInput(e);return;}
+  if(e.code===scanCode){
+    if(scanKeyDown)return;scanKeyDown=true;
+    if(swOn){
+      e.preventDefault();ensureAudio();scanLong=false;
+      scanTimer=setTimeout(function(){scanLong=true;swChoose();},longPressMs);
+      return;
+    }
+    onInput(e);return;
+  }
   if(e.code===backCode){
     if(backKeyDown)return;e.preventDefault();ensureAudio();
-    backKeyDown=true;
-    backTimer=setTimeout(function(){tone(330,0.15,'sine',0.1);window.location.href='index.html';},longPressMs);
+    backKeyDown=true;backActivated=false;
+    backTimer=setTimeout(function(){backActivated=true;tone(330,0.15,'sine',0.1);window.location.href='index.html';},longPressMs);
   }
 });
 document.addEventListener('keyup',function(e){
-  if(e.code===scanCode){scanKeyDown=false;onInputUp(e);}
-  if(e.code===backCode&&backKeyDown){clearTimeout(backTimer);backKeyDown=false;}
+  if(e.code===scanCode&&scanKeyDown){
+    scanKeyDown=false;clearTimeout(scanTimer);onInputUp(e);
+    if(scanTimer&&!scanLong&&swOn)swMove(1);
+    scanTimer=null;
+  }
+  if(e.code===backCode&&backKeyDown){
+    clearTimeout(backTimer);backKeyDown=false;
+    if(!backActivated&&swOn)swMove(-1);
+  }
 });
+function isHudTarget(e){
+  var id=e.target.id;
+  return id==='btn-back'||id==='btn-diff'||id==='btn-mute'||id==='btn-play';
+}
 document.addEventListener('touchstart',function(e){
-  if(e.target.id==='btn-back'||e.target.id==='btn-diff'||e.target.id==='btn-mute')return;onInput(e);
+  if(isHudTarget(e))return;onInput(e);
 },{passive:false});
 document.addEventListener('touchend',function(e){
-  if(e.target.id==='btn-back'||e.target.id==='btn-diff'||e.target.id==='btn-mute')return;onInputUp(e);
+  if(isHudTarget(e))return;onInputUp(e);
 },{passive:false});
 canvas.addEventListener('mousedown',function(e){onInput(e);});
 canvas.addEventListener('mouseup',function(e){onInputUp(e);});
 
 /* ══ Game transitions ══ */
 function startGame(){
-  state=ST_PLAY;showDiffBtn(false);
+  state=ST_PLAY;swShow(null);
   var d=DIFFS[diff];
   speed=d.speeds[lvl]*scale;
   player.y=groundY()-player.size;
@@ -430,7 +568,6 @@ function startGame(){
   lvlObs=lv.obs;lvlPits=lv.pits;lvlLen=lv.len;lvlDist=0;
   trail=[];particles=[];flash=0;stateTime=0;
   startMusic();
-  doJump();
 }
 
 function doJump(){
@@ -465,7 +602,7 @@ function advanceLevel(){
 }
 
 function toMenu(){
-  state=ST_MENU;showDiffBtn(true);stopMusic();
+  state=ST_MENU;swShow('▶ Jugar');stopMusic();
   lvl=curLvl(diff);
   player.y=groundY()-player.size;player.vy=0;player.onGround=true;player.rot=0;
   lvlObs=[];lvlPits=[];trail=[];particles=[];flash=0;
@@ -506,6 +643,8 @@ function update(dt){
 
   if(state===ST_WIN||state===ST_OVER){
     stateTime+=dt*16.67;
+    if(!swOn&&stateTime>(state===ST_WIN?800:1000))
+      swShow(state===ST_OVER?'↻ Otra vez':lvl<NLVL-1?'▶ Siguiente nivel':'▶ Menú');
     flash=Math.max(0,flash-dt*0.04);
     if(state===ST_OVER){
       player.vy+=DIFFS[diff].gravity*scale*dt;
@@ -841,15 +980,7 @@ function drawMenu(){
   ctx.fillStyle='rgba(255,255,255,0.45)';
   ctx.fillText('Pulsa '+keyLabel(scanCode)+' para saltar · Esquiva los obstáculos',W/2,H*0.42);
 
-  var pulse=0.5+Math.sin(tick*0.06)*0.5;
-  ctx.globalAlpha=0.55+pulse*0.45;
-  var fs4=Math.round(H*0.031);
-  ctx.font='bold '+fs4+'px system-ui,sans-serif';
-  ctx.shadowColor='#00FFFF';ctx.shadowBlur=10*scale;
-  ctx.fillStyle='#00FFFF';
-  ctx.fillText('Pulsa '+keyLabel(scanCode)+' para jugar',W/2,H*0.68);
-  ctx.shadowBlur=0;ctx.globalAlpha=1;
-
+  /* «▶ Jugar» es un botón (#btn-play) a la altura del 62 % */
   if(diff===0){
     var fs5=Math.round(H*0.014);
     ctx.font=fs5+'px system-ui,sans-serif';
@@ -897,16 +1028,6 @@ function drawWin(){
   }else{
     ctx.fillStyle='#FFD54F';
     ctx.fillText('¡Dificultad completada! 🏆',W/2,py+ph*0.7);
-  }
-
-  if(stateTime>800){
-    var p2=0.5+Math.sin(tick*0.06)*0.5;
-    ctx.globalAlpha=0.45+p2*0.55;
-    var fs3=Math.round(H*0.017);
-    ctx.font='bold '+fs3+'px system-ui,sans-serif';
-    ctx.fillStyle='rgba(255,255,255,0.6)';
-    ctx.fillText('Pulsa '+keyLabel(scanCode)+' para continuar',W/2,py+ph*0.85);
-    ctx.globalAlpha=1;
   }
 
   ctx.restore();
@@ -959,16 +1080,7 @@ function drawOver(){
   var isNew=pct===bestPct&&pct>0;
   ctx.fillStyle=isNew?'#FFD54F':'rgba(255,255,255,0.4)';
   ctx.fillText(isNew?'¡Nuevo récord!':'Mejor: '+bestPct+'%',W/2,py+ph*0.66);
-
-  if(stateTime>1000){
-    var p2=0.5+Math.sin(tick*0.06)*0.5;
-    ctx.globalAlpha=0.45+p2*0.55;
-    var fs4=Math.round(H*0.017);
-    ctx.font='bold '+fs4+'px system-ui,sans-serif';
-    ctx.fillStyle='rgba(255,255,255,0.6)';
-    ctx.fillText('Pulsa '+keyLabel(scanCode)+' para reintentar',W/2,py+ph*0.82);
-    ctx.globalAlpha=1;
-  }
+  /* «↻ Otra vez» aparece como botón (#btn-play) bajo el panel */
 
   if(flash>0){ctx.fillStyle='rgba(255,50,50,'+flash*0.25+')';ctx.fillRect(0,0,W,H);}
   ctx.restore();
@@ -989,7 +1101,7 @@ function loop(ts){
 }
 
 /* ── Init ── */
-resize();makeStars();showDiffBtn(true);updateMuteBtn();
+resize();makeStars();swShow('▶ Jugar');updateMuteBtn();
 player.y=groundY()-player.size;
 requestAnimationFrame(function(ts){lastTs=ts;requestAnimationFrame(loop);});
 

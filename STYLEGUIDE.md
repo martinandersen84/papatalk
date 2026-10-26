@@ -265,12 +265,15 @@ canvas{display:block}
 #btn-back{ ... }
 #btn-diff{ ... }
 #btn-mute{ ... }
+#btn-play{ ... }  #sw-hint{ ... }  .scan-highlight{ ... }   /* menú de pulsador */
 </style>
 </head>
 <body>
 <a id="btn-back" href="index.html">◀ Volver</a>
 <button id="btn-diff" onclick="window._cycleDiff()">⭐ Fácil</button>
 <button id="btn-mute" onclick="window._toggleMute()">🔊</button>
+<button id="btn-play">▶ Jugar</button>
+<div id="sw-hint"></div>
 <canvas id="game"></canvas>
 <script>
 (function(){
@@ -310,10 +313,31 @@ transition: background .2s;
 | `#btn-back` | `left: 10px` | Pill 24px radius | `<a href="index.html">◀ Volver</a>` |
 | `#btn-diff` | `right: 64px` (o `right: 10px` si no hay mute) | Pill, color según dificultad | `onclick="window._cycleDiff()"` |
 | `#btn-mute` | `right: 10px` | Circular 44px | `onclick="window._toggleMute()"` |
+| `#btn-play` | centrado, `top: 62%` | Pill grande, color del juego | Acción principal fuera de la partida (ver «Menú de pulsador») |
 
 - `:active { background: rgba(0,0,0,0.6) }` o `transform: scale(0.93)`
 - El botón "Volver" es un `<a>`, no un `<button>`, para navegación directa
 - Si hay btn-mute a la derecha, btn-diff se desplaza a `right: 64px`
+- `#btn-diff` y `#btn-play` solo se ven fuera de la partida; los paneles de fin de partida terminan antes del 60 % de alto para no tapar `#btn-play`
+
+### Menú de pulsador (salir y opciones con un solo pulsador)
+
+Fuera de la partida (menú, fin de partida, nivel superado…) los botones forman un barrido con las **mismas reglas que el tablero**, así un solo pulsador basta para jugar, cambiar la dificultad, silenciar y salir:
+
+| Tecla | Corta | Larga (`longPressMs`) |
+|---|---|---|
+| Avanzar (`scanCode`) | Siguiente opción | Elegir la opción resaltada |
+| Retroceder (`backCode`) | Opción anterior | Salir a `index.html` |
+
+- Orden fijo: `#btn-play` → `#btn-diff` → `#btn-mute` → `#btn-back`; al mostrarse el menú se resalta `#btn-play`
+- `#btn-play` cambia de texto según la pantalla: `▶ Jugar`, `↻ Otra vez`, `▶ Siguiente nivel`, `▶ Menú`
+- Resaltado con `.scan-highlight` (mismo amarillo con anillo oscuro que §4.6) y tonos `523 Hz` al moverse y `587 Hz` al elegir
+- `#sw-hint` abajo: `Pulsa →: siguiente · Mantén →: elegir` (con la tecla configurada)
+- Tras perder o ganar, el menú aparece después de la pausa de seguridad (~0,8–1,2 s) para que una pulsación de juego no lo active
+- Cambiar la dificultad desde fin de partida vuelve al menú (el récord mostrado es siempre el de la dificultad actual)
+- Durante la partida el avance es la acción del juego; la salida con un solo pulsador es desde estas pantallas. Si el juego necesita dos teclas para algo imprescindible (p. ej. lanzar la bola en Ladrillos), debe ocurrir también solo (Ladrillos lanza a los 3 s)
+- Patrón de teclado: `keydown` arranca un temporizador de `longPressMs` que elige; `keyup` antes de que salte mueve el resaltado. Solo cuenta el `keyup` de una pulsación que empezó con el menú visible
+- Curiosidades sigue la misma regla en el menú, en el lector (`Siguiente ▶` / `◀ Menú`) y en el error de carga (`↻ Reintentar` / `◀ Volver`)
 
 ### Leer configuración de PapaTalk
 
@@ -341,6 +365,7 @@ var DIFFS = [
 
 - Colores de dificultad: verde → naranja → rojo
 - Persistencia en localStorage con clave propia del juego (ej. `vuela-data`)
+- **Todo** acceso a `localStorage` va en `try/catch` (en modo privado o sin espacio lanza y congelaría el bucle) y lo leído se valida: `diff` solo si es 0, 1 o 2; arrays de récords con la longitud esperada
 - El botón de dificultad muestra `icon + ' ' + name` y se colorea con `btn.style.background`
 
 ### Sistema de audio
@@ -349,6 +374,9 @@ var DIFFS = [
 - Función helper `tone(freq, dur, type, vol)` para efectos de sonido
 - Música procedural con Web Audio (osciladores, no archivos de audio)
 - Mute con localStorage (ej. `vuela-muted`), icono `🔊`/`🔇`
+- Con la pantalla oculta el `setInterval` del secuenciador se frena y al volver tocaba las notas atrasadas de golpe. Siempre:
+  - `visibilitychange` (oculta) y `pagehide` → `audioCtx.suspend()`; visible y `pageshow` → `audioCtx.resume()`
+  - en el secuenciador, `if (next < audioCtx.currentTime) next = audioCtx.currentTime + 0.05;` antes del bucle, para saltar los pasos perdidos
 
 ### Canvas
 
@@ -371,19 +399,28 @@ function resize(){
 - DPR limitado a 2 para rendimiento
 - Resize listener con `window.addEventListener('resize', resize)`
 - Game loop con `requestAnimationFrame`
+- Si el juego guarda posiciones en píxeles, `resize()` en plena partida tiene que reescalarlas (girar la tableta no puede dejar ladrillos fuera de la pantalla ni obstáculos desplazados)
 
 ### Controles en mini-apps
 
-- **Touch**: `touchstart` en canvas (excluir botones HUD con check de `e.target`)
-- **Teclado**: escuchar `scanCode` y `backCode` de la config
+- **Touch**: `touchstart` en canvas (excluir botones HUD con check de `e.target`); fuera de la partida, tocar el canvas = `#btn-play`
+- **Teclado**: escuchar `scanCode` y `backCode` de la config; fuera de la partida, «Menú de pulsador»
 - **Repetición**: comprobar `e.repeat` para evitar múltiples disparos
+- **Un solo pulsador**: todo lo imprescindible (jugar, salir, dificultad, sonido) tiene que poder hacerse solo con la tecla de avanzar
 - **No incluir detector de urgencia** — los juegos están naturalmente aislados
+
+### Niveles generados (Salta)
+
+- El salto máximo ronda 2,6 cubos (menos a 30 fps): nada que haya que saltar desde el suelo pasa de 2,25 cubos
+- El generador deja siempre sitio para aterrizar y volver a saltar con al menos 10 fotogramas de margen, y 2 s de carrera antes del primer obstáculo
+- Tras tocar `salta.html`, ejecutar `node scripts/check_salta_levels`: juega los 15 niveles a 20–120 fps en tres pantallas y falla si alguno es imposible
 
 ### Excluir botones HUD del touch
 
 ```javascript
 canvas.addEventListener('touchstart', function(e){
-  if(e.target.id === 'btn-back' || e.target.id === 'btn-diff' || e.target.id === 'btn-mute') return;
+  var id = e.target.id;
+  if(id === 'btn-back' || id === 'btn-diff' || id === 'btn-mute' || id === 'btn-play') return;
   e.preventDefault();
   // ... game action
 }, {passive:false});
@@ -522,11 +559,15 @@ function playTone(freq, duration) {
 9. [ ] Canvas con DPR capping a 2
 10. [ ] Audio con Web Audio API (procedural, sin archivos)
 11. [ ] Persistencia de datos del juego en localStorage con clave propia
-12. [ ] Excluir botones HUD del handler de touch
+12. [ ] Excluir botones HUD (incluido `#btn-play`) del handler de touch
 13. [ ] Comprobar `e.repeat` en keydown
 14. [ ] **No** incluir detector de urgencia
-15. [ ] Añadir el `.html` al array `CORE` en `sw.js`
-16. [ ] Añadir entrada en el tablero principal (`index.html`) si corresponde
+15. [ ] Menú de pulsador fuera de la partida: `#btn-play`, `#sw-hint`, barrido corta/larga; probar a jugar, cambiar dificultad, silenciar y **salir solo con la tecla de avanzar**
+16. [ ] `localStorage` siempre en `try/catch` y datos leídos validados
+17. [ ] Suspender el audio con `visibilitychange`/`pagehide` y saltar pasos perdidos en el secuenciador
+18. [ ] `resize()` en plena partida recoloca lo que esté en píxeles
+19. [ ] Añadir el `.html` al array `CORE` en `sw.js`
+20. [ ] Añadir entrada en el tablero principal (`index.html`) si corresponde
 
 ---
 
@@ -541,4 +582,4 @@ function playTone(freq, duration) {
 
 ---
 
-*Última actualización: 2026-10-22*
+*Última actualización: 2026-10-26*

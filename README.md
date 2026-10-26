@@ -77,6 +77,14 @@ python scripts\merge_facts_batch data\facts\batches\nuevo_lote.json
 python scripts\validate_facts --strict-minimum
 ```
 
+Y uno de Node para los juegos:
+
+- `check_salta_levels` — juega los 15 niveles de Salta con un bot (a 20–120 fps y en tres tamaños de pantalla) y falla si alguno es imposible. Ejecutarlo tras tocar `salta.html`:
+
+```powershell
+node scripts\check_salta_levels
+```
+
 ## Desarrollo local
 
 El proyecto se sirve como archivos estáticos. Configuración de arranque en `.claude/launch.json`:

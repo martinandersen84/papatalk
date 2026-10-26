@@ -1,0 +1,93 @@
+#!/usr/bin/env node
+/*
+ * Comprueba que todos los niveles de Salta se pueden superar.
+ *
+ * Carga el código real de salta.html con un DOM mínimo y, para cada
+ * dificultad y nivel, busca (en profundidad, probando a saltar o no en cada
+ * fotograma en el suelo) una secuencia de saltos que llegue al final.
+ * Lo repite a 120, 60, 30 y 20 fps (dt 0.5, 1, 2, 3) y en tres pantallas.
+ *
+ * Uso:  node scripts/check_salta_levels [ruta/a/salta.html]
+ * Sale con código 1 si algún nivel es imposible.
+ */
+'use strict';
+const fs = require('fs');
+const path = require('path');
+
+const file = process.argv[2] || path.join(__dirname, '..', 'salta.html');
+const DTS = [0.5, 1, 2, 3];
+const SCREENS = [[1280, 800], [390, 844], [844, 390]];
+const NAMES = ['Fácil', 'Normal', 'Difícil'];
+
+function loadGame(W, H) {
+  let src = fs.readFileSync(file, 'utf8');
+  src = src.slice(src.indexOf('<script>') + 8, src.lastIndexOf('</script>'));
+  const hook = `window.__S={update:update,doJump:doJump,
+    set:function(d,l){diff=d;lvl=l;},start:startGame,
+    snap:function(){return {st:state,y:player.y,vy:player.vy,og:player.onGround,rot:player.rot,
+      pb:player.prevBottom,jq:player.jumpQ,dist:lvlDist,
+      ox:lvlObs.map(function(o){return o.x;}),px:lvlPits.map(function(p){return p.x;})};},
+    restore:function(s){state=s.st;player.y=s.y;player.vy=s.vy;player.onGround=s.og;player.rot=s.rot;
+      player.prevBottom=s.pb;player.jumpQ=s.jq;lvlDist=s.dist;
+      lvlObs.forEach(function(o,i){o.x=s.ox[i];});lvlPits.forEach(function(p,i){p.x=s.px[i];});
+      particles.length=0;trail.length=0;},
+    info:function(){return {state:state,len:lvlLen,dist:lvlDist,PLAY:ST_PLAY,WIN:ST_WIN};}};`;
+  const end = src.lastIndexOf('})();');
+  src = src.slice(0, end) + hook + src.slice(end);
+
+  const noop = new Proxy(function () {}, { get: () => noop, apply: () => noop, set: () => true });
+  const el = () => ({
+    style: {}, textContent: '', addEventListener() {}, click() {}, getContext: () => noop,
+    classList: { add() {}, remove() {}, contains() { return false; } }
+  });
+  const els = {};
+  const win = { innerWidth: W, innerHeight: H, devicePixelRatio: 1, addEventListener() {}, location: {} };
+  const doc = { getElementById: id => els[id] || (els[id] = el()), addEventListener() {}, hidden: false };
+  const store = {};
+  const ls = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } };
+  const fn = new Function('window', 'document', 'localStorage', 'requestAnimationFrame',
+    'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', src);
+  fn(win, doc, ls, () => 0, () => 0, () => {}, () => 0, () => {});
+  return win.__S;
+}
+
+function solve(S, d, l, dt) {
+  S.set(d, l); S.start();
+  const seen = new Set();
+  let best = 0, nodes = 0;
+  function dfs(frame) {
+    for (;;) {
+      if (++nodes > 2e6) return false;
+      S.update(dt); frame++;
+      const i = S.info();
+      if (i.state === i.WIN) return true;
+      if (i.state !== i.PLAY) { best = Math.max(best, i.dist / i.len); return false; }
+      const s = S.snap();
+      if (s.og) {
+        const key = frame + ':' + Math.round(s.y);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        S.doJump();
+        if (dfs(frame)) return true;
+        S.restore(s);
+      }
+    }
+  }
+  return dfs(0) ? null : Math.floor(best * 100);
+}
+
+let failures = 0;
+for (const [W, H] of SCREENS) {
+  const S = loadGame(W, H);
+  for (const dt of DTS) {
+    const bad = [];
+    for (let d = 0; d < 3; d++) for (let l = 0; l < 5; l++) {
+      const pct = solve(S, d, l, dt);
+      if (pct !== null) bad.push(NAMES[d] + ' ' + (l + 1) + ' (llega al ' + pct + ' %)');
+    }
+    failures += bad.length;
+    console.log(W + 'x' + H + ' a ' + Math.round(60 / dt) + ' fps: ' +
+      (bad.length ? 'IMPOSIBLE ' + bad.join(', ') : 'los 15 niveles se pueden superar'));
+  }
+}
+process.exit(failures ? 1 : 0);
