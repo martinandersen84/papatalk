@@ -490,13 +490,13 @@ function playTone(freq, duration) {
 
 ### 9b. Despliegue
 
-`.github/workflows/deploy.yml` publica en GitHub Pages (https://martinandersen84.github.io/papatalk/) en cada push a `master` (o a mano desde Actions → Deploy → Run workflow):
+`.github/workflows/deploy.yml` publica en GitHub Pages (https://papatalk.martinandersen.es/, dominio propio con `CNAME` sin proxy en Cloudflare) en cada push a `master` (o a mano desde Actions → Deploy → Run workflow):
 
 1. Pone `DEV_MODE = false` y `CACHE_NAME = 'papatalk-<8 primeros caracteres del commit>'` en `sw.js`, y `PAPATALK_DEV_MODE = false` en `index.html`.
 2. Copia a `_site/` los ficheros de la web, sin `.github/`, `.claude/`, `scripts/`, `data/facts/batches/` ni los `.md`.
 3. Lo sube con `actions/upload-pages-artifact` y `actions/deploy-pages`.
 
-- La web vive en la subcarpeta `/papatalk/`: todas las rutas (HTML, `sw.js`, `manifest.json`, imágenes) deben ser **relativas**, nunca empezar por `/`.
+- Todas las rutas (HTML, `sw.js`, `manifest.json`, imágenes) deben ser **relativas**, nunca empezar por `/`: la web tiene que funcionar igual en la raíz del subdominio que en una subcarpeta como `/papatalk/`.
 - Pages no lee `.htaccess` ni permite cabeceras propias (sirve todo con caché de 10 min); la actualización la garantizan el `CACHE_NAME` por commit y `updateViaCache: 'none'` al registrar el service worker.
 
 ### Recursos (pictogramas)
