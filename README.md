@@ -89,13 +89,15 @@ Durante el desarrollo, el service worker está en modo `DEV_MODE = true` (sin ca
 
 ## Despliegue
 
-La app se publica en GitHub Pages: **https://martinandersen84.github.io/papatalk/**. Cada push a `master` la publica sola con GitHub Actions (`.github/workflows/deploy.yml`):
+La app se publica en GitHub Pages: **https://papatalk.martinandersen.es/** (dominio propio; `martinandersen.es/papatalk/` redirige allí). Cada push a `master` la publica sola con GitHub Actions (`.github/workflows/deploy.yml`):
 
 1. Pasa `sw.js` e `index.html` a modo producción y pone `CACHE_NAME = 'papatalk-<commit>'`, para que los dispositivos instalados reciban la versión nueva.
 2. Copia a `_site/` solo los ficheros de la web (sin `.github/`, `.claude/`, `scripts/`, `data/facts/batches/` ni los `.md`).
 3. Lo publica en Pages.
 
 No necesita secretos. También se puede lanzar a mano desde Actions → Deploy → Run workflow.
+
+El dominio propio se configura en Settings → Pages (custom domain `papatalk.martinandersen.es`, HTTPS forzado) y en Cloudflare con un registro `CNAME papatalk → martinandersen84.github.io` **sin proxy** (nube gris), para que GitHub pueda emitir el certificado.
 
 ## Créditos
 
